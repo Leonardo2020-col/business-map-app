@@ -160,32 +160,15 @@ if (process.env.NODE_ENV === 'production') {
   }
 }
 
-// Middleware de manejo de errores 404 - Solo para APIs
-console.log('🛣️ Registrando middleware 404...');
-app.use((req, res, next) => {
-  // Solo manejar rutas que empiecen con /api
-  if (req.path.startsWith('/api')) {
-    return res.status(404).json({
-      success: false,
-      message: 'Ruta de API no encontrada',
-      error: 'API_ROUTE_NOT_FOUND',
-      path: req.originalUrl,
-      availableRoutes: [
-        'GET /',
-        'GET /api/health',
-        'POST /api/auth/login',
-        'POST /api/auth/register',
-        'GET /api/auth/verify',
-        'GET /api/businesses',
-        'POST /api/businesses',
-        'PUT /api/businesses/:id',
-        'DELETE /api/businesses/:id'
-      ]
-    });
-  }
-  
-  // En producción, servir el SPA para rutas no-API
-  if (process.env.NODE_ENV === 'production') {
+// En producción, servir el SPA para rutas no-API
+if (process.env.NODE_ENV === 'production') {
+  console.log('🛣️ Registrando SPA fallback...');
+  app.get('*', (req, res, next) => {
+    // Solo para rutas que NO empiecen con /api
+    if (req.path.startsWith('/api')) {
+      return next();
+    }
+    
     const frontendPath = path.join(__dirname, '../../frontend/dist');
     const indexPath = path.join(frontendPath, 'index.html');
     
@@ -201,10 +184,31 @@ app.use((req, res, next) => {
         suggestion: 'Ejecuta npm run build para construir el frontend'
       });
     }
-  }
-  
-  // En desarrollo, no hacer nada más (el frontend corre en Vite)
-  next();
+  });
+  console.log('✅ SPA fallback registrado');
+}
+
+// Middleware de manejo de errores 404 - Solo para APIs que no existen
+console.log('🛣️ Registrando middleware 404 para APIs...');
+app.use('/api/*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    message: 'Ruta de API no encontrada',
+    error: 'API_ROUTE_NOT_FOUND',
+    path: req.originalUrl,
+    method: req.method,
+    availableRoutes: [
+      'GET /',
+      'GET /api/health',
+      'POST /api/auth/login',
+      'POST /api/auth/register',
+      'GET /api/auth/verify',
+      'GET /api/businesses',
+      'POST /api/businesses',
+      'PUT /api/businesses/:id',
+      'DELETE /api/businesses/:id'
+    ]
+  });
 });
 
 console.log('✅ Middleware 404 registrado');
