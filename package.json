@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "Business Map Application - Fullstack React + Node.js + PostgreSQL",
   "scripts": {
-    "start": "cd backend && npm start",
     "build": "cd frontend && npm run build",
+    "start": "cd backend && npm start",
     "postinstall": "cd backend && npm install && cd ../frontend && npm install",
     "dev": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm run dev\"",
     "setup-db": "cd backend && npm run setup-db"

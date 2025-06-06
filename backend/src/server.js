@@ -2,6 +2,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 
 const sequelize = require('./config/database');
@@ -132,17 +133,34 @@ app.get('/api/health', async (req, res) => {
 });
 console.log('✅ Ruta de health check registrada');
 
-// Servir frontend SOLO en producción
+// Servir frontend React en producción
 if (process.env.NODE_ENV === 'production') {
   console.log('🌐 Configurando servicio de archivos estáticos...');
   
-  // Servir archivos estáticos del build del frontend
-  app.use(express.static(path.join(__dirname, '../../frontend/dist')));
+  const frontendPath = path.join(__dirname, '../../frontend/dist');
+  console.log('📁 Ruta del frontend:', frontendPath);
   
-  console.log('✅ Archivos estáticos configurados');
+  // Verificar que el directorio existe
+  if (fs.existsSync(frontendPath)) {
+    console.log('✅ Directorio frontend/dist encontrado');
+    
+    // Servir archivos estáticos
+    app.use(express.static(frontendPath));
+    console.log('✅ Archivos estáticos configurados');
+    
+  } else {
+    console.error('❌ No se encontró frontend/dist');
+    console.error('💡 Verifica que npm run build se ejecutó correctamente');
+    
+    // Listar contenido del directorio para debug
+    const frontendDir = path.join(__dirname, '../../frontend');
+    if (fs.existsSync(frontendDir)) {
+      console.log('📂 Contenido de frontend/:', fs.readdirSync(frontendDir));
+    }
+  }
 }
 
-// Middleware de manejo de errores 404 - Simplificado
+// Middleware de manejo de errores 404 - Solo para APIs
 console.log('🛣️ Registrando middleware 404...');
 app.use((req, res, next) => {
   // Solo manejar rutas que empiecen con /api
@@ -168,8 +186,21 @@ app.use((req, res, next) => {
   
   // En producción, servir el SPA para rutas no-API
   if (process.env.NODE_ENV === 'production') {
-    console.log(`Serving SPA for path: ${req.path}`);
-    return res.sendFile(path.join(__dirname, '../../frontend/dist/index.html'));
+    const frontendPath = path.join(__dirname, '../../frontend/dist');
+    const indexPath = path.join(frontendPath, 'index.html');
+    
+    if (fs.existsSync(indexPath)) {
+      console.log(`🌐 Serving React app for: ${req.path}`);
+      return res.sendFile(indexPath);
+    } else {
+      console.error('❌ index.html no encontrado en:', indexPath);
+      return res.status(404).json({
+        success: false,
+        message: 'Frontend no disponible',
+        error: 'FRONTEND_NOT_BUILT',
+        suggestion: 'Ejecuta npm run build para construir el frontend'
+      });
+    }
   }
   
   // En desarrollo, no hacer nada más (el frontend corre en Vite)
@@ -277,7 +308,7 @@ const startServer = async () => {
       console.log(`🌍 Entorno: ${process.env.NODE_ENV || 'development'}`);
       
       if (process.env.NODE_ENV === 'production') {
-        console.log(`🚀 Railway URL: https://tu-app-production.up.railway.app`);
+        console.log(`🚀 Railway URL: https://business-map-app-production.up.railway.app`);
       } else {
         console.log(`🏠 Local URL: http://localhost:${PORT}`);
         console.log(`🔗 Frontend: http://localhost:5173`);
@@ -297,7 +328,7 @@ const startServer = async () => {
       console.log('   - DELETE /api/businesses/:id (eliminar negocio)');
       
       if (process.env.NODE_ENV === 'production') {
-        console.log('   - GET  /* (frontend SPA)');
+        console.log('   - GET  /* (frontend React SPA)');
       }
       
       console.log('');
