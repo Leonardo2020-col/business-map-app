@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "Business Map Application - Fullstack React + Node.js + PostgreSQL",
   "scripts": {
+    "start": "npm run build && cd backend && npm start",
     "build": "cd frontend && npm run build",
-    "start": "cd backend && npm start",
     "postinstall": "cd backend && npm install && cd ../frontend && npm install",
     "dev": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm run dev\"",
     "setup-db": "cd backend && npm run setup-db"
@@ -13,17 +13,7 @@
     "node": ">=18.0.0",
     "npm": ">=8.0.0"
   },
-  "keywords": [
-    "business",
-    "map",
-    "react",
-    "nodejs",
-    "postgresql",
-    "railway"
-  ],
+  "keywords": ["business", "map", "react", "nodejs", "postgresql", "railway"],
   "author": "Tu Nombre",
-  "license": "MIT",
-  "devDependencies": {
-    "concurrently": "^9.1.2"
-  }
+  "license": "MIT"
 }
