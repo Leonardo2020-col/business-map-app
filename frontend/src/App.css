@@ -1,0 +1,306 @@
+/* Reset global para toda la aplicación */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* ✅ FIX: Permitir scroll por defecto */
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* Root container */
+#root {
+  min-height: 100vh;
+  width: 100vw;
+  /* ✅ FIX: Altura automática para permitir scroll */
+  height: auto;
+  /* ✅ FIX: Permitir scroll */
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* App principal */
+.App {
+  min-height: 100vh;
+  width: 100vw;
+  margin: 0;
+  padding: 0;
+  /* ✅ FIX: Altura automática */
+  height: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* Container para páginas normales (con layout) */
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 100vw;
+  /* ✅ FIX: Permitir scroll */
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* Main content para páginas con navbar y footer */
+
+/* Loading screen */
+.app-loading {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background: #f5f5f5;
+  width: 100vw;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9999;
+}
+
+.app-loading p {
+  margin-top: 20px;
+  color: #666;
+  font-size: 16px;
+}
+
+/* ✅ ESPECÍFICO: Estilos para el mapa fullscreen */
+/*
+.fullscreen-map-container {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1000;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+*/
+/* ✅ Override para cuando estamos en ruta de mapa SOLAMENTE */
+body.map-page {
+  overflow: hidden !important;
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+}
+
+body.map-page #root {
+  overflow: hidden !important;
+  height: 100vh;
+}
+
+body.map-page .App {
+  overflow: hidden !important;
+  height: 100vh;
+}
+
+/* ✅ IMPORTANTE: Asegurar que las páginas normales tengan scroll */
+body:not(.map-page) {
+  overflow-y: auto !important;
+  height: auto !important;
+  position: static !important;
+}
+
+body:not(.map-page) #root {
+  overflow-y: auto !important;
+  height: auto !important;
+  min-height: 100vh;
+}
+
+body:not(.map-page) .App {
+  overflow-y: auto !important;
+  height: auto !important;
+  min-height: 100vh;
+}
+
+/* Logos y elementos decorativos (mantener para otras páginas) */
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+/* Cards y elementos UI */
+.card {
+  padding: 2em;
+  margin: 1em 0;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.read-the-docs {
+  color: #888;
+}
+
+/* ✅ MEJORADO: Responsive con scroll fix */
+@media (max-width: 768px) {
+  /.main-content {
+    padding: 10px;
+    /*max-width: calc(100vw - 20px);*/
+    /* ✅ FIX: Asegurar scroll en móviles */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch; /* Scroll suave en iOS */
+  }
+
+  body:not(.map-page) {
+    position: static !important;
+    overflow-y: auto !important;
+  }
+}
+
+@media (max-width: 1024px) and (min-width: 769px) {
+  .main-content {
+    max-width: calc(100vw - 40px);
+    padding: 15px;
+  }
+}
+
+/* Utilidades */
+/*
+.fullscreen {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+}
+*/
+.no-scroll {
+  overflow: hidden !important;
+}
+
+.prevent-scroll {
+  overflow: hidden !important;
+  position: fixed;
+  width: 100%;
+  height: 100%;
+}
+
+.fullscreen-content {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ✅ Fix para iOS Safari */
+@supports (-webkit-touch-callout: none) {
+  .fullscreen-map-container {
+    height: -webkit-fill-available;
+  }
+
+  body.map-page {
+    height: -webkit-fill-available;
+  }
+
+  body.map-page #root,
+  body.map-page .App {
+    height: -webkit-fill-available;
+  }
+
+  /* ✅ Para páginas normales en iOS */
+  body:not(.map-page) {
+    height: auto !important;
+    min-height: -webkit-fill-available;
+  }
+}
+
+/* ✅ Prevenir zoom en inputs en iOS */
+@media screen and (-webkit-min-device-pixel-ratio: 0) {
+  select,
+  textarea,
+  input[type="text"],
+  input[type="password"],
+  input[type="datetime"],
+  input[type="datetime-local"],
+  input[type="date"],
+  input[type="month"],
+  input[type="time"],
+  input[type="week"],
+  input[type="number"],
+  input[type="email"],
+  input[type="url"],
+  input[type="search"],
+  input[type="tel"],
+  input[type="color"] {
+    font-size: 16px;
+  }
+}
+
+/* ✅ Asegurar que elementos flotantes no causen scroll horizontal */
+.floating-element {
+  position: fixed;
+  max-width: calc(100vw - 20px);
+  max-height: calc(100vh - 20px);
+}
+
+/* ✅ Scroll suave global */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ✅ Debug temporal (comentar en producción) */
+/*
+body {
+  border: 3px solid red !important;
+}
+
+#root {
+  border: 3px solid blue !important;
+}
+
+.App {
+  border: 3px solid green !important;
+}
+
+.main-content {
+  border: 3px solid orange !important;
+}
+*/
