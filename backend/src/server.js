@@ -163,7 +163,9 @@ if (process.env.NODE_ENV === 'production') {
 // En producción, servir el SPA para rutas no-API
 if (process.env.NODE_ENV === 'production') {
   console.log('🛣️ Registrando SPA fallback...');
-  app.get('*', (req, res, next) => {
+  
+  // Middleware para servir el SPA
+  app.use((req, res, next) => {
     // Solo para rutas que NO empiecen con /api
     if (req.path.startsWith('/api')) {
       return next();
@@ -185,6 +187,7 @@ if (process.env.NODE_ENV === 'production') {
       });
     }
   });
+  
   console.log('✅ SPA fallback registrado');
 }
 
