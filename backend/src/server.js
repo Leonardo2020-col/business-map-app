@@ -193,25 +193,31 @@ if (process.env.NODE_ENV === 'production') {
 
 // Middleware de manejo de errores 404 - Solo para APIs que no existen
 console.log('🛣️ Registrando middleware 404 para APIs...');
-app.use('/api/*', (req, res) => {
-  res.status(404).json({
-    success: false,
-    message: 'Ruta de API no encontrada',
-    error: 'API_ROUTE_NOT_FOUND',
-    path: req.originalUrl,
-    method: req.method,
-    availableRoutes: [
-      'GET /',
-      'GET /api/health',
-      'POST /api/auth/login',
-      'POST /api/auth/register',
-      'GET /api/auth/verify',
-      'GET /api/businesses',
-      'POST /api/businesses',
-      'PUT /api/businesses/:id',
-      'DELETE /api/businesses/:id'
-    ]
-  });
+app.use((req, res, next) => {
+  // Solo manejar rutas que empiecen con /api y que no hayan sido manejadas
+  if (req.path.startsWith('/api')) {
+    return res.status(404).json({
+      success: false,
+      message: 'Ruta de API no encontrada',
+      error: 'API_ROUTE_NOT_FOUND',
+      path: req.originalUrl,
+      method: req.method,
+      availableRoutes: [
+        'GET /',
+        'GET /api/health',
+        'POST /api/auth/login',
+        'POST /api/auth/register',
+        'GET /api/auth/verify',
+        'GET /api/businesses',
+        'POST /api/businesses',
+        'PUT /api/businesses/:id',
+        'DELETE /api/businesses/:id'
+      ]
+    });
+  }
+  
+  // Para rutas no-API, continuar al siguiente middleware
+  next();
 });
 
 console.log('✅ Middleware 404 registrado');
