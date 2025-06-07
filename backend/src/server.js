@@ -10,6 +10,7 @@ const User = require('./models/User');
 const Business = require('./models/Business');
 const authRoutes = require('./routes/auth');
 const businessRoutes = require('./routes/businesses');
+const userRoutes = require('./routes/users');
 
 const app = express();
 
@@ -30,6 +31,8 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+
 
 // Middleware de logging
 app.use((req, res, next) => {
@@ -73,6 +76,7 @@ try {
 console.log('🛣️ Registrando rutas de la API...');
 app.use('/api/auth', authRoutes);
 app.use('/api/businesses', businessRoutes);
+app.use('/api/users', userRoutes);
 console.log('✅ Rutas de la API registradas');
 
 // Ruta de prueba
