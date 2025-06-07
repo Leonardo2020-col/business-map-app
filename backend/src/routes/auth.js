@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { auth } = require('../middleware/auth');
+const bcrypt = require('bcryptjs');
 
 const router = express.Router();
 
@@ -825,6 +826,70 @@ router.post('/logout', auth, async (req, res) => {
       success: false,
       message: 'Error interno del servidor',
       error: 'INTERNAL_ERROR'
+    });
+  }
+});
+
+// Resetear contraseña (solo admin)
+router.post('/reset-password', authMiddleware, async (req, res) => {
+  try {
+    // Verificar que el usuario sea admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Acceso denegado. Solo administradores pueden resetear contraseñas.'
+      });
+    }
+
+    const { username, newPassword } = req.body;
+
+    // Validaciones
+    if (!username || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username y nueva contraseña son requeridos'
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'La contraseña debe tener al menos 6 caracteres'
+      });
+    }
+
+    // Buscar el usuario
+    const user = await User.findOne({
+      where: { username }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado'
+      });
+    }
+
+    // Hash de la nueva contraseña
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    // Actualizar la contraseña
+    await user.update({
+      password: hashedPassword
+    });
+
+    console.log(`🔑 Admin ${req.user.username} reset password for user: ${username}`);
+
+    res.json({
+      success: true,
+      message: `Contraseña actualizada exitosamente para el usuario "${username}"`
+    });
+
+  } catch (error) {
+    console.error('Error resetting password:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor'
     });
   }
 });
