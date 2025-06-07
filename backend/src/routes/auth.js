@@ -830,7 +830,7 @@ router.post('/logout', auth, async (req, res) => {
   }
 });
 
-// Resetear contraseña (solo admin)
+// Resetear contraseña (solo admin) - SIN importar bcrypt de nuevo
 router.post('/reset-password', authMiddleware, async (req, res) => {
   try {
     // Verificar que el usuario sea admin
@@ -870,7 +870,7 @@ router.post('/reset-password', authMiddleware, async (req, res) => {
       });
     }
 
-    // Hash de la nueva contraseña
+    // Hash de la nueva contraseña (usando bcrypt ya importado)
     const hashedPassword = await bcrypt.hash(newPassword, 12);
 
     // Actualizar la contraseña
