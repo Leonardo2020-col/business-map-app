@@ -6,7 +6,7 @@ const User = require('../models/User');  // Cambio aquí
 
 const router = express.Router();
 
-// Buscar usuarios (solo admin por ahora, sin middleware)
+// Buscar usuarios (verificar si existe)
 router.get('/search/:query', async (req, res) => {
   try {
     const { query } = req.params;
@@ -21,37 +21,28 @@ router.get('/search/:query', async (req, res) => {
       limit: 10
     });
     
-    res.json({
-      success: true,
-      users
-    });
+    if (users.length > 0) {
+      const user = users[0];
+      res.json({
+        success: true,
+        exists: true,           // ← El frontend necesita esto
+        role: user.role,        // ← Y esto
+        user: user,
+        users: users
+      });
+    } else {
+      res.json({
+        success: true,
+        exists: false,          // ← Y esto cuando no encuentra
+        message: 'Usuario no encontrado'
+      });
+    }
   } catch (error) {
     console.error('Error searching users:', error);
     res.status(500).json({
       success: false,
+      exists: false,
       message: 'Error al buscar usuarios',
-      error: error.message
-    });
-  }
-});
-
-// Listar todos los usuarios
-router.get('/', async (req, res) => {
-  try {
-    const users = await User.findAll({
-      attributes: ['id', 'username', 'role', 'created_at'],
-      order: [['created_at', 'DESC']]
-    });
-    
-    res.json({
-      success: true,
-      users
-    });
-  } catch (error) {
-    console.error('Error fetching users:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error al obtener usuarios',
       error: error.message
     });
   }
