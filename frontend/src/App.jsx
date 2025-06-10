@@ -12,6 +12,9 @@ import GoogleMap from './components/Map/GoogleMap';
 import BusinessMap from './components/Map/BusinessMap';
 import PasswordReset from './components/PasswordReset/PasswordReset';
 
+// ✅ NUEVO: Componente de gestión de usuarios
+import UserManagement from './components/UserManagement/UserManagement';
+
 // 🧪 IMPORTAR TEST TEMPORAL
 import SimpleMapTest from './components/Map/SimpleMapTest';
 
@@ -119,20 +122,6 @@ function AppContent() {
         }
       />
 
-      {/* ELIMINAR ESTA RUTA - Era la herramienta temporal
-      <Route
-        path="/reset-passwords"
-        element={
-          <div style={{ 
-            minHeight: '100vh', 
-            backgroundColor: '#f5f5f5'
-          }}>
-            <PasswordReset />
-          </div>
-        }
-      />
-      */}
-
       {/* Rutas protegidas */}
       <Route
         path="/dashboard"
@@ -229,7 +218,7 @@ function AppContent() {
         }
       />
 
-      {/* ✅ NUEVA RUTA: Gestión de contraseñas (solo admin) */}
+      {/* ✅ GESTIÓN DE CONTRASEÑAS (solo admin) */}
       <Route
         path="/admin/password-reset"
         element={
@@ -241,18 +230,13 @@ function AppContent() {
         }
       />
 
-      {/* Futura ruta: Gestión de usuarios */}
+      {/* ✅ NUEVA RUTA: Gestión de usuarios (solo admin) */}
       <Route
         path="/admin/users"
         element={
           <AdminRoute>
             <AppLayout>
-              <div style={{ padding: '20px', textAlign: 'center' }}>
-                <h2>👥 Gestión de Usuarios</h2>
-                <p style={{ color: '#666', marginTop: '20px' }}>
-                  Esta funcionalidad estará disponible próximamente
-                </p>
-              </div>
+              <UserManagement />
             </AppLayout>
           </AdminRoute>
         }
@@ -353,7 +337,7 @@ const NotFound = () => {
   );
 };
 
-// Panel de administrador mejorado
+// ✅ PANEL DE ADMINISTRADOR ACTUALIZADO
 const AdminPanel = () => {
   const { user } = useAuth();
   
@@ -369,6 +353,30 @@ const AdminPanel = () => {
         gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
         gap: '20px'
       }}>
+        {/* ✅ Card de Gestión de Usuarios - AHORA DISPONIBLE */}
+        <div style={{
+          padding: '20px',
+          backgroundColor: '#f8f9fa',
+          borderRadius: '8px',
+          border: '1px solid #dee2e6',
+          cursor: 'pointer',
+          transition: 'all 0.3s'
+        }}
+        onClick={() => window.location.href = '/admin/users'}
+        onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+        onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+        >
+          <h3>👥 Gestión de Usuarios</h3>
+          <p>Crear, editar y gestionar usuarios del sistema</p>
+          <ul style={{ fontSize: '14px', color: '#666', marginTop: '10px' }}>
+            <li>✅ Crear nuevos usuarios</li>
+            <li>✅ Asignar roles y permisos</li>
+            <li>✅ Activar/desactivar usuarios</li>
+            <li>✅ Gestión de contraseñas</li>
+          </ul>
+          <span style={{ color: '#28a745', fontWeight: 'bold' }}>✓ Disponible</span>
+        </div>
+
         {/* Card de Gestión de Contraseñas */}
         <div style={{
           padding: '20px',
@@ -385,20 +393,6 @@ const AdminPanel = () => {
           <h3>🔐 Gestión de Contraseñas</h3>
           <p>Resetear contraseñas de usuarios del sistema</p>
           <span style={{ color: '#28a745', fontWeight: 'bold' }}>✓ Disponible</span>
-        </div>
-
-        {/* Card de Gestión de Usuarios */}
-        <div style={{
-          padding: '20px',
-          backgroundColor: '#f8f9fa',
-          borderRadius: '8px',
-          border: '1px solid #dee2e6',
-          opacity: 0.6,
-          cursor: 'not-allowed'
-        }}>
-          <h3>👥 Gestión de Usuarios</h3>
-          <p>Administrar usuarios y permisos del sistema</p>
-          <span style={{ color: '#ffc107', fontWeight: 'bold' }}>🚧 Próximamente</span>
         </div>
 
         {/* Card de Logs del Sistema */}
@@ -427,6 +421,86 @@ const AdminPanel = () => {
           <h3>🔧 Configuración</h3>
           <p>Ajustes generales de la aplicación</p>
           <span style={{ color: '#ffc107', fontWeight: 'bold' }}>🚧 Próximamente</span>
+        </div>
+
+        {/* ✅ NUEVA Card de Estadísticas */}
+        <div style={{
+          padding: '20px',
+          backgroundColor: '#f8f9fa',
+          borderRadius: '8px',
+          border: '1px solid #dee2e6',
+          opacity: 0.6,
+          cursor: 'not-allowed'
+        }}>
+          <h3>📈 Estadísticas</h3>
+          <p>Métricas y análisis del sistema</p>
+          <span style={{ color: '#ffc107', fontWeight: 'bold' }}>🚧 Próximamente</span>
+        </div>
+
+        {/* ✅ NUEVA Card de Respaldos */}
+        <div style={{
+          padding: '20px',
+          backgroundColor: '#f8f9fa',
+          borderRadius: '8px',
+          border: '1px solid #dee2e6',
+          opacity: 0.6,
+          cursor: 'not-allowed'
+        }}>
+          <h3>💾 Respaldos</h3>
+          <p>Gestión de copias de seguridad</p>
+          <span style={{ color: '#ffc107', fontWeight: 'bold' }}>🚧 Próximamente</span>
+        </div>
+      </div>
+
+      {/* ✅ SECCIÓN DE ESTADÍSTICAS RÁPIDAS */}
+      <div style={{ marginTop: '40px' }}>
+        <h2>📊 Estadísticas Rápidas</h2>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: '15px',
+          marginTop: '20px'
+        }}>
+          <div style={{
+            padding: '15px',
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            textAlign: 'center',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+          }}>
+            <h3 style={{ margin: '0 0 5px 0', color: '#667eea' }}>👥</h3>
+            <p style={{ margin: '0', fontSize: '14px', color: '#666' }}>Usuarios</p>
+          </div>
+          <div style={{
+            padding: '15px',
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            textAlign: 'center',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+          }}>
+            <h3 style={{ margin: '0 0 5px 0', color: '#28a745' }}>🏢</h3>
+            <p style={{ margin: '0', fontSize: '14px', color: '#666' }}>Negocios</p>
+          </div>
+          <div style={{
+            padding: '15px',
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            textAlign: 'center',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+          }}>
+            <h3 style={{ margin: '0 0 5px 0', color: '#ffc107' }}>📍</h3>
+            <p style={{ margin: '0', fontSize: '14px', color: '#666' }}>Ubicaciones</p>
+          </div>
+          <div style={{
+            padding: '15px',
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            textAlign: 'center',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+          }}>
+            <h3 style={{ margin: '0 0 5px 0', color: '#dc3545' }}>🔐</h3>
+            <p style={{ margin: '0', fontSize: '14px', color: '#666' }}>Permisos</p>
+          </div>
         </div>
       </div>
     </div>
