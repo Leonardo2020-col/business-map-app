@@ -664,3 +664,256 @@
     color: #fff;
   }
 }
+/* ===============================================
+   ESTILOS ADICIONALES PARA LOS NUEVOS CAMPOS
+   Agregar esto al final de BusinessTable.css
+   =============================================== */
+
+/* ✅ COLUMNAS DE LA TABLA - Estilos específicos */
+.address-cell {
+  max-width: 200px;
+}
+
+.address-cell .main-address {
+  font-size: 14px;
+  line-height: 1.4;
+  color: #333;
+}
+
+.location-cell {
+  min-width: 120px;
+  max-width: 150px;
+}
+
+.location-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+
+.location-item:last-child {
+  margin-bottom: 0;
+}
+
+.location-icon {
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.location-text {
+  color: #555;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.no-location {
+  color: #999;
+  font-style: italic;
+  text-align: center;
+  display: block;
+}
+
+.contact-cell {
+  min-width: 140px;
+  max-width: 180px;
+}
+
+.contact-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+
+.contact-item:last-child {
+  margin-bottom: 0;
+}
+
+.contact-icon {
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.contact-link {
+  color: #007bff;
+  text-decoration: none;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contact-link:hover {
+  text-decoration: underline;
+}
+
+.no-contact {
+  color: #999;
+  font-style: italic;
+  text-align: center;
+  display: block;
+}
+
+/* ✅ CARDS MÓVIL - Nuevos estilos */
+.location-extras {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.location-tag {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 11px;
+  color: #495057;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.location-tag:first-child {
+  background: #e3f2fd;
+  border-color: #bbdefb;
+  color: #1976d2;
+}
+
+.location-tag:nth-child(2) {
+  background: #f3e5f5;
+  border-color: #ce93d8;
+  color: #7b1fa2;
+}
+
+.location-tag:nth-child(3) {
+  background: #e8f5e8;
+  border-color: #a5d6a7;
+  color: #2e7d32;
+}
+
+/* ✅ RESPONSIVE MEJORADO */
+@media (max-width: 1200px) {
+  .business-table th,
+  .business-table td {
+    font-size: 13px;
+    padding: 8px 6px;
+  }
+
+  .location-cell,
+  .contact-cell {
+    min-width: 100px;
+    max-width: 120px;
+  }
+
+  .address-cell {
+    max-width: 150px;
+  }
+}
+
+@media (max-width: 992px) {
+  .business-table th:nth-child(4),
+  .business-table td:nth-child(4) {
+    display: none; /* Ocultar columna ubicación en tablets */
+  }
+
+  .business-table th:nth-child(5),
+  .business-table td:nth-child(5) {
+    display: none; /* Ocultar columna contacto en tablets */
+  }
+}
+
+@media (max-width: 768px) {
+  /* En móvil, la tabla se oculta y se muestran las cards */
+  .table-container {
+    display: none;
+  }
+
+  .business-cards {
+    display: block;
+  }
+}
+
+@media (min-width: 769px) {
+  /* En desktop, las cards se ocultan y se muestra la tabla */
+  .table-container {
+    display: block;
+  }
+
+  .business-cards {
+    display: none;
+  }
+}
+
+/* ✅ MEJORAR VISUALIZACIÓN DE COORDENADAS */
+.coords-badge {
+  background: #e8f5e8;
+  border: 1px solid #a5d6a7;
+  border-radius: 12px;
+  padding: 2px 6px;
+  font-size: 11px;
+  color: #2e7d32;
+  font-family: "Courier New", monospace;
+  white-space: nowrap;
+  display: inline-block;
+}
+
+.no-coords {
+  color: #dc3545;
+  font-style: italic;
+  font-size: 11px;
+}
+
+/* ✅ MEJORAR SEARCH INPUT */
+.search-input {
+  min-width: 300px;
+}
+
+@media (max-width: 768px) {
+  .search-input {
+    min-width: 100%;
+  }
+}
+
+/* ✅ TOOLTIPS PARA INFORMACIÓN ADICIONAL */
+.location-item[title],
+.contact-item[title] {
+  cursor: help;
+}
+
+/* ✅ ESTADOS HOVER MEJORADOS */
+.business-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+}
+
+.business-table tbody tr:hover {
+  background-color: #f8f9fa;
+  transition: background-color 0.2s ease;
+}
+
+/* ✅ INDICADORES VISUALES MEJORADOS */
+.business-type-badge {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.business-description {
+  color: #6c757d;
+  font-size: 12px;
+  font-style: italic;
+  margin-top: 4px;
+  line-height: 1.3;
+}

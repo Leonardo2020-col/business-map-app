@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { businessAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
-import MapModal from '../Map/MapModal'; // ✅ IMPORTAR EL MODAL
+import MapModal from '../Map/MapModal';
 import './BusinessForm.css';
 
 const BusinessForm = () => {
@@ -11,43 +11,42 @@ const BusinessForm = () => {
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
   
-  // Estados del formulario
+  // Estados del formulario - AGREGADOS NUEVOS CAMPOS
   const [formData, setFormData] = useState({
     name: '',
     address: '',
-    business_type: '',
+    distrito: '',     // ✅ NUEVO CAMPO
+    sector: '',       // ✅ NUEVO CAMPO
+    anexo: '',        // ✅ NUEVO CAMPO
+    business_type: '', // ✅ AHORA ES INPUT DE TEXTO
     phone: '',
-    email: '',
+    email: '',        // ✅ YA ES OPCIONAL
     description: '',
     latitude: '',
     longitude: ''
   });
 
-  const [businessTypes, setBusinessTypes] = useState([]);
+  // ✅ ELIMINAR businessTypes - Ya no se necesita porque es input de texto
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // ✅ NUEVOS ESTADOS para el modal del mapa
+  // Estados para el modal del mapa
   const [isMapModalOpen, setIsMapModalOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(null);
 
   const isEditing = !!id;
 
-  // Cargar datos iniciales
+  // Cargar datos iniciales - SIMPLIFICADO
   useEffect(() => {
-    loadBusinessTypes();
-    
-    // Si estamos editando, cargar los datos del negocio
     if (isEditing) {
       loadBusinessData();
     } else {
-      // Si venimos del mapa con coordenadas, cargarlas
       loadInitialCoordinates();
     }
   }, [id]);
 
-  // ✅ Cargar coordenadas iniciales desde URL (cuando viene del mapa)
+  // Cargar coordenadas iniciales desde URL (cuando viene del mapa)
   const loadInitialCoordinates = () => {
     const lat = searchParams.get('lat');
     const lng = searchParams.get('lng');
@@ -69,17 +68,6 @@ const BusinessForm = () => {
     }
   };
 
-  const loadBusinessTypes = async () => {
-    try {
-      const response = await businessAPI.getTypes();
-      const types = response.data?.data || response.data || [];
-      setBusinessTypes(Array.isArray(types) ? types : []);
-    } catch (err) {
-      console.error('Error cargando tipos:', err);
-      setError('Error al cargar los tipos de negocio');
-    }
-  };
-
   const loadBusinessData = async () => {
     try {
       setLoading(true);
@@ -90,6 +78,9 @@ const BusinessForm = () => {
         setFormData({
           name: business.name || '',
           address: business.address || '',
+          distrito: business.distrito || '',         // ✅ NUEVO CAMPO
+          sector: business.sector || '',             // ✅ NUEVO CAMPO
+          anexo: business.anexo || '',               // ✅ NUEVO CAMPO
           business_type: business.business_type || '',
           phone: business.phone || '',
           email: business.email || '',
@@ -138,12 +129,12 @@ const BusinessForm = () => {
     }
   };
 
-  // ✅ FUNCIÓN para abrir el modal del mapa
+  // Función para abrir el modal del mapa
   const handleOpenMapModal = () => {
     setIsMapModalOpen(true);
   };
 
-  // ✅ FUNCIÓN para manejar la selección de ubicación
+  // Función para manejar la selección de ubicación
   const handleLocationSelect = (location) => {
     console.log('📍 Ubicación seleccionada:', location);
     setSelectedLocation(location);
@@ -162,7 +153,7 @@ const BusinessForm = () => {
     setTimeout(() => setSuccess(''), 3000);
   };
 
-  // ✅ FUNCIÓN para limpiar la ubicación
+  // Función para limpiar la ubicación
   const handleClearLocation = () => {
     setSelectedLocation(null);
     setFormData(prev => ({
@@ -184,9 +175,18 @@ const BusinessForm = () => {
       setError('La dirección es requerida');
       return false;
     }
-    if (!formData.business_type) {
+    if (!formData.business_type.trim()) {  // ✅ VALIDACIÓN SIMPLIFICADA
       setError('El tipo de negocio es requerido');
       return false;
+    }
+    
+    // Validar email solo si se proporciona (ya es opcional)
+    if (formData.email && formData.email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email.trim())) {
+        setError('El email no tiene un formato válido');
+        return false;
+      }
     }
     
     // Validar coordenadas si están presentes
@@ -216,6 +216,8 @@ const BusinessForm = () => {
 
       const businessData = {
         ...formData,
+        // ✅ LIMPIAR EMAIL VACÍO (convertir a null si está vacío)
+        email: formData.email.trim() || null,
         latitude: formData.latitude ? parseFloat(formData.latitude) : null,
         longitude: formData.longitude ? parseFloat(formData.longitude) : null
       };
@@ -268,9 +270,9 @@ const BusinessForm = () => {
           </p>
         </div>
 
-        {/* CONTENIDO SCROLLEABLE - form wrapper */}
+        {/* CONTENIDO SCROLLEABLE */}
         <form onSubmit={handleSubmit} className="form">
-          {/* Mensajes de error y éxito DENTRO del área scrolleable */}
+          {/* Mensajes de error y éxito */}
           {error && (
             <div className="alert alert-error">
               <span className="alert-icon">⚠️</span>
@@ -302,20 +304,21 @@ const BusinessForm = () => {
               />
             </div>
 
+            {/* ✅ CAMBIO PRINCIPAL: SELECT A INPUT DE TEXTO */}
             <div className="form-group">
               <label htmlFor="business_type">🏷️ Tipo de Negocio:</label>
-              <select
+              <input
+                type="text"
                 id="business_type"
                 name="business_type"
                 value={formData.business_type}
                 onChange={handleChange}
+                placeholder="Ej: Restaurante, Tienda, Farmacia, etc."
                 required
-              >
-                <option value="">Selecciona un tipo</option>
-                {businessTypes.map(type => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
+              />
+              <small style={{ color: '#666', fontSize: '12px', marginTop: '5px', display: 'block' }}>
+                💡 Escribe el tipo de negocio que mejor describa tu actividad
+              </small>
             </div>
 
             <div className="form-group">
@@ -348,26 +351,32 @@ const BusinessForm = () => {
                 />
               </div>
 
+              {/* ✅ EMAIL OPCIONAL - Agregar indicador visual */}
               <div className="form-group">
-                <label htmlFor="email">📧 Email:</label>
+                <label htmlFor="email">
+                  📧 Email: 
+                  <span style={{ color: '#6c757d', fontWeight: 'normal', fontSize: '12px' }}>
+                    (opcional)
+                  </span>
+                </label>
                 <input
                   type="email"
                   id="email"
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  placeholder="contacto@negocio.com"
+                  placeholder="contacto@negocio.com (opcional)"
                 />
               </div>
             </div>
           </div>
 
-          {/* Ubicación */}
+          {/* ✅ SECCIÓN DE UBICACIÓN EXPANDIDA */}
           <div className="form-section">
             <h3 className="section-title">📍 Ubicación</h3>
             
             <div className="form-group">
-              <label htmlFor="address">🏠 Dirección:</label>
+              <label htmlFor="address">🏠 Dirección Principal:</label>
               <textarea
                 id="address"
                 name="address"
@@ -379,7 +388,46 @@ const BusinessForm = () => {
               />
             </div>
 
-            {/* ✅ SECCIÓN DE COORDENADAS CON SELECTOR DE MAPA */}
+            {/* ✅ NUEVOS CAMPOS DE UBICACIÓN */}
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="distrito">🏛️ Distrito:</label>
+                <input
+                  type="text"
+                  id="distrito"
+                  name="distrito"
+                  value={formData.distrito}
+                  onChange={handleChange}
+                  placeholder="Ej: San Isidro, Miraflores, etc."
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="sector">📍 Sector:</label>
+                <input
+                  type="text"
+                  id="sector"
+                  name="sector"
+                  value={formData.sector}
+                  onChange={handleChange}
+                  placeholder="Ej: Centro, Norte, Sur, etc."
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="anexo">🏘️ Anexo:</label>
+              <input
+                type="text"
+                id="anexo"
+                name="anexo"
+                value={formData.anexo}
+                onChange={handleChange}
+                placeholder="Ej: Anexo 22, Villa Los Rosales, etc."
+              />
+            </div>
+
+            {/* SECCIÓN DE COORDENADAS CON SELECTOR DE MAPA */}
             <div className="form-group">
               <label>🗺️ Ubicación en el mapa:</label>
               
@@ -466,7 +514,7 @@ const BusinessForm = () => {
           </div>
         </form>
 
-        {/* FOOTER FIJO - Botones de acción FUERA del form */}
+        {/* FOOTER FIJO - Botones de acción */}
         <div className="form-actions">
           <button
             type="button"
@@ -497,7 +545,7 @@ const BusinessForm = () => {
         </div>
       </div>
 
-      {/* ✅ MODAL DEL MAPA */}
+      {/* MODAL DEL MAPA */}
       <MapModal
         isOpen={isMapModalOpen}
         onClose={() => setIsMapModalOpen(false)}

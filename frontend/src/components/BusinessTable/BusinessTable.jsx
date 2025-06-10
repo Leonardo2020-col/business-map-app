@@ -46,7 +46,7 @@ const BusinessTable = () => {
     } catch (err) {
       console.error('❌ Error cargando negocios:', err);
       setError(err.response?.data?.message || 'Error al cargar los negocios');
-      setBusinesses([]); // Asegurar que businesses sea un array vacío
+      setBusinesses([]);
     } finally {
       setLoading(false);
     }
@@ -75,7 +75,7 @@ const BusinessTable = () => {
       // Actualizar la lista local
       setBusinesses(prev => prev.filter(business => business.id !== id));
       
-      // Mostrar mensaje de éxito (puedes usar un toast aquí)
+      // Mostrar mensaje de éxito
       alert('Negocio eliminado exitosamente');
       
     } catch (err) {
@@ -84,13 +84,32 @@ const BusinessTable = () => {
     }
   };
 
-  // Filtrar negocios según búsqueda y tipo
+  // ✅ FUNCIÓN HELPER para formatear la dirección completa
+  const formatFullAddress = (business) => {
+    let fullAddress = business.address || '';
+    const locationParts = [];
+    
+    if (business.sector) locationParts.push(`Sector: ${business.sector}`);
+    if (business.anexo) locationParts.push(`Anexo: ${business.anexo}`);
+    if (business.distrito) locationParts.push(`Distrito: ${business.distrito}`);
+    
+    if (locationParts.length > 0) {
+      fullAddress += ` (${locationParts.join(', ')})`;
+    }
+    
+    return fullAddress;
+  };
+
+  // Filtrar negocios según búsqueda y tipo - ✅ INCLUIR NUEVOS CAMPOS EN LA BÚSQUEDA
   const filteredBusinesses = businesses.filter(business => {
     if (!business) return false;
     
     const matchesSearch = !searchTerm || 
       (business.name && business.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (business.address && business.address.toLowerCase().includes(searchTerm.toLowerCase()));
+      (business.address && business.address.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (business.distrito && business.distrito.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (business.sector && business.sector.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (business.anexo && business.anexo.toLowerCase().includes(searchTerm.toLowerCase()));
     
     const matchesType = filterType === 'all' || business.business_type === filterType;
     
@@ -108,7 +127,7 @@ const BusinessTable = () => {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
   };
 
-  // Componente Card para móvil
+  // ✅ COMPONENTE CARD ACTUALIZADO para móvil
   const BusinessCard = ({ business }) => (
     <div className="business-card">
       <div className="business-card-header">
@@ -125,11 +144,26 @@ const BusinessTable = () => {
       )}
       
       <div className="business-card-details">
+        {/* ✅ DIRECCIÓN COMPLETA CON NUEVOS CAMPOS */}
         <div className="business-card-detail">
           <span className="detail-icon">📍</span>
           <div className="detail-content">
             <div className="detail-label">Dirección</div>
             <div className="detail-value">{business.address || 'No especificada'}</div>
+            {/* ✅ MOSTRAR CAMPOS DE UBICACIÓN ADICIONALES */}
+            {(business.distrito || business.sector || business.anexo) && (
+              <div className="location-extras">
+                {business.distrito && (
+                  <span className="location-tag">🏛️ {business.distrito}</span>
+                )}
+                {business.sector && (
+                  <span className="location-tag">📍 {business.sector}</span>
+                )}
+                {business.anexo && (
+                  <span className="location-tag">🏘️ {business.anexo}</span>
+                )}
+              </div>
+            )}
           </div>
         </div>
         
@@ -164,7 +198,7 @@ const BusinessTable = () => {
         <div className="business-card-detail">
           <span className="detail-icon">🗺️</span>
           <div className="detail-content">
-            <div className="detail-label">Ubicación</div>
+            <div className="detail-label">Coordenadas</div>
             <div className="detail-value">
               {business.latitude && business.longitude ? (
                 <span className="coords-badge">
@@ -236,11 +270,11 @@ const BusinessTable = () => {
           <input
             id="search"
             type="text"
-            placeholder="Buscar por nombre o dirección..."
+            placeholder="Buscar por nombre, dirección, distrito, sector o anexo..."
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
-              setCurrentPage(1); // Resetear a la primera página
+              setCurrentPage(1);
             }}
             className="search-input"
           />
@@ -253,7 +287,7 @@ const BusinessTable = () => {
             value={filterType}
             onChange={(e) => {
               setFilterType(e.target.value);
-              setCurrentPage(1); // Resetear a la primera página
+              setCurrentPage(1);
             }}
             className="type-filter"
           >
@@ -314,7 +348,7 @@ const BusinessTable = () => {
             </div>
           ) : (
             <>
-              {/* Tabla para Desktop */}
+              {/* ✅ TABLA ACTUALIZADA para Desktop */}
               <div className="table-container">
                 <table className="business-table">
                   <thead>
@@ -322,15 +356,16 @@ const BusinessTable = () => {
                       <th>Nombre</th>
                       <th>Tipo</th>
                       <th>Dirección</th>
-                      <th>Teléfono</th>
-                      <th>Email</th>
                       <th>Ubicación</th>
+                      <th>Contacto</th>
+                      <th>Coordenadas</th>
                       <th>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {currentBusinesses.map(business => (
                       <tr key={business.id}>
+                        {/* Nombre y descripción */}
                         <td>
                           <strong>{business.name || 'Sin nombre'}</strong>
                           {business.description && (
@@ -340,30 +375,70 @@ const BusinessTable = () => {
                             </div>
                           )}
                         </td>
+                        
+                        {/* Tipo de negocio */}
                         <td>
                           <span className="business-type-badge">
                             {business.business_type || 'No especificado'}
                           </span>
                         </td>
-                        <td>{business.address || 'No especificada'}</td>
-                        <td>
-                          {business.phone ? (
-                            <a href={`tel:${business.phone}`} style={{ color: '#007bff' }}>
-                              {business.phone}
-                            </a>
-                          ) : (
-                            '-'
+                        
+                        {/* Dirección principal */}
+                        <td className="address-cell">
+                          <div className="main-address">
+                            {business.address || 'No especificada'}
+                          </div>
+                        </td>
+                        
+                        {/* ✅ NUEVA COLUMNA: Ubicación (distrito, sector, anexo) */}
+                        <td className="location-cell">
+                          {business.distrito && (
+                            <div className="location-item">
+                              <span className="location-icon">🏛️</span>
+                              <span className="location-text">{business.distrito}</span>
+                            </div>
+                          )}
+                          {business.sector && (
+                            <div className="location-item">
+                              <span className="location-icon">📍</span>
+                              <span className="location-text">{business.sector}</span>
+                            </div>
+                          )}
+                          {business.anexo && (
+                            <div className="location-item">
+                              <span className="location-icon">🏘️</span>
+                              <span className="location-text">{business.anexo}</span>
+                            </div>
+                          )}
+                          {!business.distrito && !business.sector && !business.anexo && (
+                            <span className="no-location">-</span>
                           )}
                         </td>
-                        <td>
-                          {business.email ? (
-                            <a href={`mailto:${business.email}`} style={{ color: '#007bff' }}>
-                              {business.email}
-                            </a>
-                          ) : (
-                            '-'
+                        
+                        {/* Contacto (teléfono y email) */}
+                        <td className="contact-cell">
+                          {business.phone && (
+                            <div className="contact-item">
+                              <span className="contact-icon">📞</span>
+                              <a href={`tel:${business.phone}`} className="contact-link">
+                                {business.phone}
+                              </a>
+                            </div>
+                          )}
+                          {business.email && (
+                            <div className="contact-item">
+                              <span className="contact-icon">✉️</span>
+                              <a href={`mailto:${business.email}`} className="contact-link">
+                                {business.email.length > 20 ? business.email.substring(0, 20) + '...' : business.email}
+                              </a>
+                            </div>
+                          )}
+                          {!business.phone && !business.email && (
+                            <span className="no-contact">-</span>
                           )}
                         </td>
+                        
+                        {/* Coordenadas */}
                         <td>
                           {business.latitude && business.longitude ? (
                             <span className="coords-badge">
@@ -373,6 +448,8 @@ const BusinessTable = () => {
                             <span className="no-coords">Sin coordenadas</span>
                           )}
                         </td>
+                        
+                        {/* Acciones */}
                         <td>
                           <div className="action-buttons">
                             <button
