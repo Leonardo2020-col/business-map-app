@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { businessAPI } from '../../services/api';
 // ✅ CORREGIR la importación - quitar "components/"
 import { RecentBusinessesSection } from '../BusinessTable/BusinessTable';
-import Navbar from '../Navbar';
+import Navbar from '../Navbar/Navbar';
 import './Dashborad.css';
 
 const Dashboard = () => {
