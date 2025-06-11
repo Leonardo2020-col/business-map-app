@@ -14,7 +14,7 @@ const mapContainerStyle = {
 };
 
 const defaultCenter = {
-  lat: -12.0464, // Lima, Perú (ajusta según tu región)
+  lat: -12.0464, // Lima, Perú
   lng: -77.0428
 };
 
@@ -45,7 +45,6 @@ const GoogleMapComponent = () => {
   const [error, setError] = useState('');
   const [map, setMap] = useState(null);
   const [center, setCenter] = useState(defaultCenter);
-  const [isControlsCollapsed, setIsControlsCollapsed] = useState(false);
 
   // Cargar datos al montar el componente
   useEffect(() => {
@@ -66,30 +65,54 @@ const GoogleMapComponent = () => {
 
       // Cargar negocios y tipos en paralelo
       const [businessResponse, typesResponse] = await Promise.all([
-        businessAPI.getAll({ limit: 200 }), // Cargar más para el mapa
+        businessAPI.getAll({ limit: 500 }), // Cargar más negocios
         businessAPI.getTypes()
       ]);
 
-      if (businessResponse.success) {
-        // Filtrar solo negocios con coordenadas
-        const businessesWithCoords = businessResponse.data.filter(
-          business => business.latitude && business.longitude
-        );
+      console.log('📊 Respuesta de negocios:', businessResponse);
+
+      if (businessResponse && businessResponse.success) {
+        const allBusinesses = businessResponse.data || [];
+        console.log(`📋 Total negocios recibidos: ${allBusinesses.length}`);
+        
+        // Filtrar solo negocios con coordenadas válidas
+        const businessesWithCoords = allBusinesses.filter(business => {
+          const hasCoords = business.latitude && business.longitude;
+          const lat = parseFloat(business.latitude);
+          const lng = parseFloat(business.longitude);
+          const validCoords = !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0;
+          
+          if (hasCoords && validCoords) {
+            console.log(`✅ Negocio con coordenadas válidas: ${business.name} (${lat}, ${lng})`);
+            return true;
+          } else {
+            console.log(`❌ Negocio sin coordenadas: ${business.name}`);
+            return false;
+          }
+        });
         
         setBusinesses(businessesWithCoords);
-        console.log(`📍 ${businessesWithCoords.length} negocios con coordenadas cargados`);
+        console.log(`📍 ${businessesWithCoords.length} negocios con coordenadas válidas cargados`);
         
         // Centrar mapa en el primer negocio si existe
         if (businessesWithCoords.length > 0) {
-          setCenter({
-            lat: parseFloat(businessesWithCoords[0].latitude),
-            lng: parseFloat(businessesWithCoords[0].longitude)
-          });
+          const firstBusiness = businessesWithCoords[0];
+          const newCenter = {
+            lat: parseFloat(firstBusiness.latitude),
+            lng: parseFloat(firstBusiness.longitude)
+          };
+          setCenter(newCenter);
+          console.log(`🎯 Centrando mapa en: ${firstBusiness.name}`, newCenter);
+        } else {
+          console.log('⚠️ No hay negocios con coordenadas, usando centro por defecto');
         }
+      } else {
+        console.error('❌ Error en respuesta de negocios:', businessResponse);
       }
 
-      if (typesResponse.success) {
-        setBusinessTypes(typesResponse.data);
+      if (typesResponse && typesResponse.success) {
+        setBusinessTypes(typesResponse.data || []);
+        console.log(`🏷️ ${typesResponse.data?.length || 0} tipos de negocio cargados`);
       }
 
     } catch (error) {
@@ -103,11 +126,13 @@ const GoogleMapComponent = () => {
   const filterBusinesses = () => {
     if (selectedType === 'all') {
       setFilteredBusinesses(businesses);
+      console.log(`🔍 Mostrando todos los negocios: ${businesses.length}`);
     } else {
       const filtered = businesses.filter(
         business => business.business_type === selectedType
       );
       setFilteredBusinesses(filtered);
+      console.log(`🔍 Filtrando por '${selectedType}': ${filtered.length} negocios`);
     }
   };
 
@@ -124,11 +149,17 @@ const GoogleMapComponent = () => {
   }, []);
 
   const onMarkerClick = (business) => {
+    console.log('🖱️ Click en marcador:', business.name);
     setSelectedBusiness(business);
-    setCenter({
+    const position = {
       lat: parseFloat(business.latitude),
       lng: parseFloat(business.longitude)
-    });
+    };
+    setCenter(position);
+    if (map) {
+      map.panTo(position);
+      map.setZoom(16);
+    }
   };
 
   const getMarkerIcon = (businessType) => {
@@ -141,27 +172,29 @@ const GoogleMapComponent = () => {
       'hotel': '🏨',
       'gasolinera': '⛽',
       'supermercado': '🛒',
-      'cafe': '☕'
+      'cafe': '☕',
+      'gym': '💪',
+      'peluqueria': '💇',
+      'taller': '🔧',
+      'libreria': '📚',
+      'panaderia': '🥖'
     };
     
-    const icon = icons[businessType.toLowerCase()] || '📍';
+    const lowerType = businessType?.toLowerCase() || '';
+    let icon = '📍'; // Default icon
+    
+    // Buscar coincidencias en el tipo de negocio
+    for (const [key, emoji] of Object.entries(icons)) {
+      if (lowerType.includes(key)) {
+        icon = emoji;
+        break;
+      }
+    }
     
     return {
-      url: `data:image/svg+xml;charset=UTF-8,%3csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3e%3ctext y='50%25' font-size='24' text-anchor='middle' dominant-baseline='middle' x='50%25'%3e${icon}%3c/text%3e%3c/svg%3e`,
+      url: `data:image/svg+xml;charset=UTF-8,%3csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3e%3ccircle cx='20' cy='20' r='18' fill='white' stroke='%23667eea' stroke-width='2'/%3e%3ctext y='50%25' font-size='20' text-anchor='middle' dominant-baseline='middle' x='50%25'%3e${icon}%3c/text%3e%3c/svg%3e`,
       scaledSize: { width: 40, height: 40 }
     };
-  };
-
-  const centerMapOnBusiness = (business) => {
-    if (map) {
-      const position = {
-        lat: parseFloat(business.latitude),
-        lng: parseFloat(business.longitude)
-      };
-      map.panTo(position);
-      map.setZoom(16);
-      setSelectedBusiness(business);
-    }
   };
 
   const getCurrentLocation = () => {
@@ -195,23 +228,6 @@ const GoogleMapComponent = () => {
         <div className="map-error">
           <h2>🗺️ Google Maps no configurado</h2>
           <p>Se requiere una API Key de Google Maps para mostrar el mapa.</p>
-          <div className="business-list-fallback">
-            <h3>Negocios disponibles:</h3>
-            {businesses.map(business => (
-              <div key={business.id} className="business-item">
-                <h4>{business.name}</h4>
-                <p>{business.address}</p>
-                <button
-                  onClick={() => {
-                    const url = `https://www.google.com/maps?q=${business.latitude},${business.longitude}`;
-                    window.open(url, '_blank');
-                  }}
-                >
-                  Ver en Google Maps
-                </button>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     );
@@ -223,7 +239,7 @@ const GoogleMapComponent = () => {
         <div className="map-loading">
           <div className="loading-spinner"></div>
           <h2>🗺️ Cargando mapa...</h2>
-          <p>Preparando datos de negocios</p>
+          <p>Preparando {businesses.length} negocios</p>
         </div>
       </div>
     );
@@ -251,110 +267,56 @@ const GoogleMapComponent = () => {
         onLoad={() => console.log('LoadScript ready')}
         onError={onMapError}
       >
-        <div className="map-layout">
-          {/* Panel de controles */}
-          <div className={`map-controls ${isControlsCollapsed ? 'collapsed' : ''}`}>
-            <div className="controls-header">
-              <h3>🗺️ Mapa de Negocios</h3>
-              <button
-                onClick={() => setIsControlsCollapsed(!isControlsCollapsed)}
-                className="collapse-btn"
-                title={isControlsCollapsed ? 'Expandir panel' : 'Contraer panel'}
+        <div className="map-layout-clean">
+          {/* Barra de controles flotante */}
+          <div className="floating-controls">
+            <div className="controls-group">
+              <select
+                value={selectedType}
+                onChange={(e) => setSelectedType(e.target.value)}
+                className="type-filter"
               >
-                {isControlsCollapsed ? '📋' : '❌'}
+                <option value="all">Todos ({businesses.length})</option>
+                {businessTypes.map((type) => {
+                  const count = businesses.filter(b => b.business_type === type).length;
+                  return (
+                    <option key={type} value={type}>
+                      {type} ({count})
+                    </option>
+                  );
+                })}
+              </select>
+              
+              <button
+                onClick={getCurrentLocation}
+                className="control-btn"
+                title="Mi ubicación"
+              >
+                📍
+              </button>
+              
+              <button
+                onClick={() => {
+                  setCenter(defaultCenter);
+                  if (map) {
+                    map.panTo(defaultCenter);
+                    map.setZoom(11);
+                  }
+                }}
+                className="control-btn"
+                title="Vista general"
+              >
+                🌍
               </button>
             </div>
-
-            {!isControlsCollapsed && (
-              <div className="controls-content">
-                {/* Estadísticas */}
-                <div className="stats-section">
-                  <div className="stat-item">
-                    <span className="stat-number">{businesses.length}</span>
-                    <span className="stat-label">Total negocios</span>
-                  </div>
-                  <div className="stat-item">
-                    <span className="stat-number">{filteredBusinesses.length}</span>
-                    <span className="stat-label">Mostrando</span>
-                  </div>
-                </div>
-
-                {/* Filtros */}
-                <div className="filter-section">
-                  <label htmlFor="typeFilter">Filtrar por tipo:</label>
-                  <select
-                    id="typeFilter"
-                    value={selectedType}
-                    onChange={(e) => setSelectedType(e.target.value)}
-                    className="filter-select"
-                  >
-                    <option value="all">Todos los tipos ({businesses.length})</option>
-                    {businessTypes.map((type) => {
-                      const count = businesses.filter(b => b.business_type === type).length;
-                      return (
-                        <option key={type} value={type}>
-                          {type} ({count})
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-
-                {/* Controles de ubicación */}
-                <div className="location-controls">
-                  <button
-                    onClick={getCurrentLocation}
-                    className="btn btn-outline"
-                    title="Ir a mi ubicación"
-                  >
-                    📍 Mi ubicación
-                  </button>
-                  
-                  <button
-                    onClick={() => {
-                      setCenter(defaultCenter);
-                      if (map) {
-                        map.panTo(defaultCenter);
-                        map.setZoom(11);
-                      }
-                    }}
-                    className="btn btn-outline"
-                    title="Vista general"
-                  >
-                    🌍 Vista general
-                  </button>
-                </div>
-
-                {/* Lista de negocios */}
-                <div className="businesses-list">
-                  <h4>Negocios en el mapa:</h4>
-                  <div className="businesses-scroll">
-                    {filteredBusinesses.map((business) => (
-                      <div
-                        key={business.id}
-                        className={`business-item ${
-                          selectedBusiness?.id === business.id ? 'selected' : ''
-                        }`}
-                        onClick={() => centerMapOnBusiness(business)}
-                      >
-                        <div className="business-icon">
-                          {getMarkerIcon(business.business_type).url.match(/(%3e)(.*?)(%3c)/)?.[2] || '📍'}
-                        </div>
-                        <div className="business-info">
-                          <h5>{business.name}</h5>
-                          <p className="business-type">{business.business_type}</p>
-                          <p className="business-address">{business.address}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
+            
+            <div className="map-stats">
+              Mostrando {filteredBusinesses.length} de {businesses.length} negocios
+            </div>
           </div>
 
           {/* El mapa */}
-          <div className="map-wrapper">
+          <div className="map-wrapper-clean">
             {mapLoading && (
               <div className="map-loading-overlay">
                 <div className="loading-spinner"></div>
@@ -365,24 +327,28 @@ const GoogleMapComponent = () => {
             <GoogleMap
               mapContainerStyle={mapContainerStyle}
               center={center}
-              zoom={11}
+              zoom={12}
               options={mapOptions}
               onLoad={onMapLoad}
               onError={onMapError}
             >
               {/* Marcadores de negocios */}
-              {filteredBusinesses.map((business) => (
-                <Marker
-                  key={business.id}
-                  position={{
-                    lat: parseFloat(business.latitude),
-                    lng: parseFloat(business.longitude)
-                  }}
-                  icon={getMarkerIcon(business.business_type)}
-                  onClick={() => onMarkerClick(business)}
-                  title={business.name}
-                />
-              ))}
+              {filteredBusinesses.map((business) => {
+                const lat = parseFloat(business.latitude);
+                const lng = parseFloat(business.longitude);
+                
+                console.log(`🗺️ Renderizando marcador: ${business.name} en (${lat}, ${lng})`);
+                
+                return (
+                  <Marker
+                    key={business.id}
+                    position={{ lat, lng }}
+                    icon={getMarkerIcon(business.business_type)}
+                    onClick={() => onMarkerClick(business)}
+                    title={`${business.name} - ${business.business_type}`}
+                  />
+                );
+              })}
 
               {/* Ventana de información */}
               {selectedBusiness && (
