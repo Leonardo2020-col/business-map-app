@@ -244,7 +244,7 @@ const Dashboard = () => {
               <span className="icon">🗺️</span>
               <h3>Ver Mapa</h3>
               <p>Explorar negocios en mapa interactivo</p>
-            </Link>
+            </button>
             
             <Link to="/api/health" className="quick-link-card" target="_blank">
               <span className="icon">💊</span>
