@@ -1,139 +1,297 @@
 import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { authAPI, testConnection, getAPIConfig } from '../../services/api';
 import './Login.css';
 
 const Login = () => {
-  const [credentials, setCredentials] = useState({ 
-    username: '', 
-    password: '' 
+  const [formData, setFormData] = useState({
+    username: '',
+    password: ''
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [debugInfo, setDebugInfo] = useState(null);
+  
   const { login } = useAuth();
+  const navigate = useNavigate();
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+    // Limpiar error cuando el usuario empiece a escribir
+    if (error) setError('');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setDebugInfo(null);
 
     // Validaciones básicas
-    if (!credentials.username.trim()) {
-      setError('El nombre de usuario es requerido');
+    if (!formData.username || !formData.password) {
+      setError('Por favor, completa todos los campos');
       setLoading(false);
       return;
     }
 
-    if (!credentials.password) {
-      setError('La contraseña es requerida');
+    if (formData.username.length < 3) {
+      setError('El nombre de usuario debe tener al menos 3 caracteres');
       setLoading(false);
       return;
     }
 
-    const result = await login(credentials);
-    
-    if (!result.success) {
-      setError(result.message);
+    if (formData.password.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres');
+      setLoading(false);
+      return;
     }
-    
-    setLoading(false);
+
+    try {
+      console.log('🔐 Iniciando proceso de login...');
+      console.log('🔧 API Config:', getAPIConfig());
+
+      // Mostrar información de debug en desarrollo
+      if (import.meta.env.DEV) {
+        const config = getAPIConfig();
+        setDebugInfo({
+          apiUrl: config.baseURL,
+          environment: config.environment,
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // Intentar login
+      const response = await authAPI.login({
+        username: formData.username.trim(),
+        password: formData.password
+      });
+
+      console.log('✅ Login response received:', response.data);
+
+      // Verificar que la respuesta sea exitosa
+      if (!response.data || !response.data.success) {
+        throw new Error(response.data?.message || 'Respuesta inválida del servidor');
+      }
+
+      // Verificar que venga el token
+      if (!response.data.data || !response.data.data.token) {
+        console.error('❌ No token in response:', response.data);
+        throw new Error('No se recibió token del servidor');
+      }
+
+      // Verificar que venga información del usuario
+      if (!response.data.data.user) {
+        console.error('❌ No user data in response:', response.data);
+        throw new Error('No se recibieron datos del usuario');
+      }
+
+      console.log('✅ Token recibido correctamente');
+      console.log('👤 Usuario autenticado:', {
+        id: response.data.data.user.id,
+        username: response.data.data.user.username,
+        role: response.data.data.user.role
+      });
+
+      // Usar el contexto para hacer login
+      await login(response.data.data.token, response.data.data.user);
+      
+      console.log('✅ Login context updated');
+      
+      // Redirigir al dashboard
+      navigate('/dashboard');
+      
+    } catch (error) {
+      console.error('❌ Error en login:', error);
+      
+      let errorMessage = 'Error al iniciar sesión';
+      
+      if (error.response) {
+        // Error HTTP del servidor
+        const status = error.response.status;
+        const data = error.response.data;
+        
+        console.error('🚨 HTTP Error:', {
+          status,
+          statusText: error.response.statusText,
+          data
+        });
+        
+        switch (status) {
+          case 400:
+            errorMessage = data?.message || 'Datos de entrada inválidos';
+            break;
+          case 401:
+            errorMessage = 'Credenciales incorrectas. Verifica tu usuario y contraseña.';
+            break;
+          case 403:
+            errorMessage = 'Acceso denegado. Tu cuenta puede estar desactivada.';
+            break;
+          case 404:
+            errorMessage = 'Servicio de autenticación no encontrado';
+            break;
+          case 500:
+            errorMessage = 'Error interno del servidor. Intenta de nuevo más tarde.';
+            break;
+          case 502:
+          case 503:
+            errorMessage = 'Servicio temporalmente no disponible. Intenta en unos momentos.';
+            break;
+          default:
+            errorMessage = data?.message || `Error del servidor (${status})`;
+        }
+      } else if (error.code === 'ECONNABORTED') {
+        errorMessage = 'Tiempo de espera agotado. Verifica tu conexión a internet.';
+      } else if (error.message === 'Network Error') {
+        errorMessage = 'No se puede conectar con el servidor. Verifica tu conexión a internet.';
+        
+        // En desarrollo, mostrar más detalles
+        if (import.meta.env.DEV) {
+          const config = getAPIConfig();
+          errorMessage += ` (intentando conectar a: ${config.baseURL})`;
+        }
+      } else if (error.userMessage) {
+        errorMessage = error.userMessage;
+      } else {
+        errorMessage = error.message || 'Error desconocido';
+      }
+      
+      setError(errorMessage);
+      
+      // En desarrollo, mostrar información adicional para debugging
+      if (import.meta.env.DEV) {
+        console.log('🔧 Debug info for developers:');
+        console.log('- API Config:', getAPIConfig());
+        console.log('- Error object:', error);
+        
+        setDebugInfo({
+          error: error.message,
+          code: error.code,
+          status: error.response?.status,
+          config: getAPIConfig(),
+          timestamp: new Date().toISOString()
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleChange = (e) => {
-    setCredentials({
-      ...credentials,
-      [e.target.name]: e.target.value
-    });
-    // Limpiar error cuando el usuario empiece a escribir
-    if (error) {
-      setError('');
-    }
-  };
-
-  const handleDemoLogin = (username, password) => {
-    setCredentials({ username, password });
+  // Función para probar la conexión
+  const handleTestConnection = async () => {
+    setLoading(true);
     setError('');
+    
+    try {
+      console.log('🧪 Testing connection...');
+      const result = await testConnection();
+      
+      if (result.success) {
+        setError(''); // Limpiar error anterior
+        alert('✅ Conexión exitosa con el servidor!');
+        console.log('✅ Connection test successful:', result.data);
+      } else {
+        setError(`❌ Error de conexión: ${result.error}`);
+        console.error('❌ Connection test failed:', result.error);
+      }
+    } catch (error) {
+      setError(`❌ Error probando conexión: ${error.message}`);
+      console.error('❌ Connection test error:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="login-container">
-      <div className="login-card slide-in-up">
+      <div className="login-card">
         <div className="login-header">
-          <div className="login-logo">
-            <div className="logo-icon">🗺️</div>
-            <h1 className="login-title">Business Map</h1>
-          </div>
-          <p className="login-subtitle">
-            Sistema de gestión de negocios con mapa interactivo
-          </p>
+          <h1>Business Map</h1>
+          <p>Inicia sesión para continuar</p>
         </div>
-        
-        <form className="login-form" onSubmit={handleSubmit}>
+
+        {/* Debug info en desarrollo */}
+        {import.meta.env.DEV && debugInfo && (
+          <div className="debug-info">
+            <h4>🔧 Info de Debug:</h4>
+            <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
-            <label htmlFor="username" className="form-label required">
-              Usuario
-            </label>
+            <label htmlFor="username">Usuario:</label>
             <input
+              type="text"
               id="username"
               name="username"
-              type="text"
-              required
-              className={`form-input ${error ? 'error' : ''}`}
-              placeholder="Ingresa tu nombre de usuario"
-              value={credentials.username}
+              value={formData.username}
               onChange={handleChange}
+              placeholder="Ingresa tu usuario"
+              required
               disabled={loading}
               autoComplete="username"
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="password" className="form-label required">
-              Contraseña
-            </label>
+            <label htmlFor="password">Contraseña:</label>
             <input
+              type="password"
               id="password"
               name="password"
-              type="password"
-              required
-              className={`form-input ${error ? 'error' : ''}`}
-              placeholder="Ingresa tu contraseña"
-              value={credentials.password}
+              value={formData.password}
               onChange={handleChange}
+              placeholder="Ingresa tu contraseña"
+              required
               disabled={loading}
               autoComplete="current-password"
             />
           </div>
 
           {error && (
-            <div className="alert alert-error">
-              <span>⚠️</span>
+            <div className="error-message">
               {error}
             </div>
           )}
 
-          <button
-            type="submit"
+          <button 
+            type="submit" 
+            className="login-button"
             disabled={loading}
-            className="btn btn-primary btn-lg btn-full login-button"
           >
-            {loading ? (
-              <>
-                <span className="loading"></span>
-                Iniciando sesión...
-              </>
-            ) : (
-              <>
-                <span>🔐</span>
-                Iniciar Sesión
-              </>
-            )}
+            {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
           </button>
+
+          {/* Botón de test de conexión solo en desarrollo */}
+          {import.meta.env.DEV && (
+            <button 
+              type="button"
+              onClick={handleTestConnection}
+              className="test-connection-button"
+              disabled={loading}
+            >
+              🧪 Probar Conexión
+            </button>
+          )}
         </form>
 
-
-        <footer className="login-footer">
-          <p>© 2024 Business Map. Desarrollado con React y PostgreSQL.</p>
-        </footer>
+        <div className="login-footer">
+          <p>¿No tienes cuenta? <Link to="/register">Regístrate aquí</Link></p>
+          <p><Link to="/forgot-password">¿Olvidaste tu contraseña?</Link></p>
+          
+          {/* Credenciales de prueba en desarrollo */}
+          {import.meta.env.DEV && (
+            <div className="dev-credentials">
+              <p><strong>👤 Credenciales de prueba:</strong></p>
+              <p>Admin: <code>admin / admin123</code></p>
+              <p>Usuario: <code>user / user123</code></p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
