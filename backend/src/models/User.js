@@ -1,4 +1,4 @@
-const { DataTypes } = require('sequelize');
+const { DataTypes, Op } = require('sequelize');  // ✅ IMPORTAR Op CORRECTAMENTE
 const sequelize = require('../config/database');
 
 const User = sequelize.define('User', {
@@ -107,7 +107,7 @@ const User = sequelize.define('User', {
       name: 'idx_users_email',
       where: {
         email: {
-          [DataTypes.Op.ne]: null
+          [Op.ne]: null  // ✅ AHORA Op ESTÁ CORRECTAMENTE IMPORTADO
         }
       }
     },
@@ -314,10 +314,10 @@ User.findWithFilters = async function(options = {}) {
   
   // Filtro de búsqueda
   if (search) {
-    where[sequelize.Sequelize.Op.or] = [
-      { username: { [sequelize.Sequelize.Op.iLike]: `%${search}%` } },
-      { full_name: { [sequelize.Sequelize.Op.iLike]: `%${search}%` } },
-      { email: { [sequelize.Sequelize.Op.iLike]: `%${search}%` } }
+    where[Op.or] = [  // ✅ USAR Op CORRECTAMENTE
+      { username: { [Op.iLike]: `%${search}%` } },
+      { full_name: { [Op.iLike]: `%${search}%` } },
+      { email: { [Op.iLike]: `%${search}%` } }
     ];
   }
   
@@ -360,17 +360,17 @@ User.findWithFilters = async function(options = {}) {
  */
 User.checkUnique = async function(username, email, excludeId = null) {
   const where = {
-    [sequelize.Sequelize.Op.or]: [
+    [Op.or]: [  // ✅ USAR Op CORRECTAMENTE
       { username: username.toLowerCase().trim() }
     ]
   };
   
   if (email && email.trim()) {
-    where[sequelize.Sequelize.Op.or].push({ email: email.toLowerCase().trim() });
+    where[Op.or].push({ email: email.toLowerCase().trim() });
   }
   
   if (excludeId) {
-    where.id = { [sequelize.Sequelize.Op.ne]: excludeId };
+    where.id = { [Op.ne]: excludeId };  // ✅ USAR Op CORRECTAMENTE
   }
   
   const existingUser = await this.findOne({ where });

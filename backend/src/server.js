@@ -3,15 +3,13 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
-// ✅ IMPORTAR CONFIGURACIÓN MEJORADA DE BASE DE DATOS
-const { 
-  sequelize, 
-  initializeDatabase, 
-  closeConnection, 
-  environment 
-} = require('./config/database');
+// ✅ IMPORTAR SEQUELIZE Y Op PARA EVITAR PROBLEMAS
+const { Op } = require('sequelize');
 
-// Importar modelos
+// Importar base de datos
+const sequelize = require('./config/database');
+
+// Importar modelos  
 const User = require('./models/User');
 const Business = require('./models/Business');
 
@@ -19,7 +17,16 @@ const Business = require('./models/Business');
 const authRoutes = require('./routes/auth');
 const businessRoutes = require('./routes/businesses');
 const userRoutes = require('./routes/users');
-const adminUserRoutes = require('./routes/admin/users');
+
+// ✅ IMPORTACIÓN CONDICIONAL DE RUTAS DE ADMIN
+let adminUserRoutes;
+try {
+  adminUserRoutes = require('./routes/admin/users');
+  console.log('✅ Rutas de administración cargadas');
+} catch (error) {
+  console.warn('⚠️ Rutas de administración no encontradas, continuando sin ellas');
+  adminUserRoutes = null;
+}
 
 // Importar middleware
 const { auth } = require('./middleware/auth');
@@ -28,38 +35,124 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // ===============================================
+// FUNCIONES HELPER PARA BASE DE DATOS
+// ===============================================
+
+/**
+ * Probar conexión a la base de datos
+ */
+const testConnection = async () => {
+  try {
+    await sequelize.authenticate();
+    console.log('✅ Conexión a PostgreSQL establecida correctamente');
+    return true;
+  } catch (error) {
+    console.error('❌ Error conectando a PostgreSQL:', error.message);
+    
+    // Mensajes de error específicos
+    if (error.original?.code === 'ECONNREFUSED') {
+      console.error('💡 PostgreSQL no está corriendo o no es accesible');
+    } else if (error.original?.code === '3D000') {
+      console.error('💡 La base de datos no existe');
+    } else if (error.original?.code === '28P01') {
+      console.error('💡 Credenciales incorrectas');
+    } else if (error.original?.code === 'ENOTFOUND') {
+      console.error('💡 Host de base de datos no encontrado');
+    }
+    
+    return false;
+  }
+};
+
+/**
+ * Verificar tablas esenciales
+ */
+const verifyTables = async () => {
+  try {
+    const [tables] = await sequelize.query(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      AND table_name IN ('users', 'businesses')
+    `);
+    
+    const tableNames = tables.map(t => t.table_name);
+    console.log(`✅ Tablas encontradas: ${tableNames.join(', ')}`);
+    
+    if (tableNames.includes('users') && tableNames.includes('businesses')) {
+      return true;
+    } else {
+      console.warn('⚠️ Faltan tablas esenciales');
+      return false;
+    }
+  } catch (error) {
+    console.warn('⚠️ No se pudieron verificar tablas:', error.message);
+    return false;
+  }
+};
+
+/**
+ * Verificar datos iniciales
+ */
+const verifyInitialData = async () => {
+  try {
+    const userCount = await User.count();
+    if (userCount === 0) {
+      console.warn('⚠️ No hay usuarios en la base de datos');
+      console.warn('💡 Para crear usuarios iniciales:');
+      console.warn('   1. Ejecuta el script SQL de inicialización');
+      console.warn('   2. O usa la ruta POST /api/auth/register');
+      return false;
+    }
+    console.log(`✅ ${userCount} usuarios encontrados en la base de datos`);
+    return true;
+  } catch (error) {
+    console.warn('⚠️ No se pudieron contar usuarios:', error.message);
+    return false;
+  }
+};
+
+// ===============================================
+// DETECTAR ENTORNO
+// ===============================================
+const isRailway = !!(process.env.DATABASE_URL || process.env.RAILWAY_STATIC_URL);
+const isProduction = process.env.NODE_ENV === 'production';
+
+console.log(`🌍 Entorno: ${isProduction ? 'Producción' : 'Desarrollo'}`);
+console.log(`🚂 Plataforma: ${isRailway ? 'Railway' : 'Local'}`);
+console.log(`📁 Directorio: ${process.cwd()}`);
+
+// ===============================================
 // MIDDLEWARE GLOBAL
 // ===============================================
 app.use(cors({
-  origin: environment.isProduction 
-    ? process.env.FRONTEND_URL 
-    : 'http://localhost:5173',
-  credentials: true
+  origin: isProduction 
+    ? (process.env.FRONTEND_URL || process.env.RAILWAY_STATIC_URL || '*') 
+    : ['http://localhost:5173', 'http://localhost:3000'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// ✅ MIDDLEWARE DE LOGGING MEJORADO
-if (!environment.isProduction) {
-  app.use((req, res, next) => {
-    const timestamp = new Date().toISOString();
-    const method = req.method.padEnd(6);
-    const url = req.path;
-    const userAgent = req.get('User-Agent')?.substring(0, 50) || 'Unknown';
-    
-    console.log(`${timestamp} - ${method} ${url} - ${userAgent}`);
-    next();
-  });
-}
-
-// ✅ MIDDLEWARE DE SALUD DE LA APLICACIÓN
+// Middleware de logging mejorado
 app.use((req, res, next) => {
-  req.appInfo = {
-    environment: environment,
-    uptime: process.uptime(),
-    timestamp: new Date().toISOString()
-  };
+  const timestamp = new Date().toISOString();
+  const method = req.method.padEnd(6);
+  const url = req.path;
+  
+  if (!isProduction) {
+    console.log(`${timestamp} - ${method} ${url}`);
+  }
+  
+  // Agregar headers de respuesta útiles
+  res.set({
+    'X-Powered-By': 'Business Map v2.0.0',
+    'X-Timestamp': timestamp
+  });
+  
   next();
 });
 
@@ -68,6 +161,11 @@ app.use((req, res, next) => {
 // ===============================================
 const setupAssociations = () => {
   try {
+    // Verificar que los modelos existen
+    if (!User || !Business) {
+      throw new Error('Modelos User o Business no están disponibles');
+    }
+    
     // Relación: Business pertenece a User (creador)
     Business.belongsTo(User, { 
       foreignKey: 'created_by', 
@@ -80,9 +178,10 @@ const setupAssociations = () => {
       as: 'businesses' 
     });
 
-    console.log('✅ Asociaciones de modelos configuradas');
+    console.log('✅ Asociaciones de modelos configuradas correctamente');
   } catch (error) {
-    console.error('❌ Error configurando asociaciones:', error);
+    console.error('❌ Error configurando asociaciones:', error.message);
+    throw error;
   }
 };
 
@@ -90,50 +189,103 @@ const setupAssociations = () => {
 // RUTAS DE API
 // ===============================================
 
-// ✅ RUTA DE SALUD MEJORADA
+// Ruta de salud detallada
 app.get('/api/health', async (req, res) => {
-  try {
-    // Probar conexión a la base de datos
-    await sequelize.authenticate();
-    
-    // Contar registros básicos
-    const [userCount, businessCount] = await Promise.all([
-      User.count().catch(() => 0),
-      Business.count().catch(() => 0)
-    ]);
+  const healthData = {
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    environment: isProduction ? 'production' : 'development',
+    platform: isRailway ? 'Railway' : 'Local',
+    uptime: `${Math.floor(process.uptime())}s`,
+    memory: {
+      used: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`,
+      total: `${Math.round(process.memoryUsage().heapTotal / 1024 / 1024)}MB`
+    },
+    version: '2.0.0',
+    nodeVersion: process.version
+  };
 
-    res.json({ 
-      status: 'OK',
-      timestamp: req.appInfo.timestamp,
-      environment: environment.isProduction ? 'production' : 'development',
-      database: {
-        status: 'Connected',
-        host: environment.host,
-        database: environment.database
-      },
-      uptime: `${Math.floor(req.appInfo.uptime)}s`,
-      counts: {
+  try {
+    // Probar conexión a BD
+    await sequelize.authenticate();
+    healthData.database = {
+      status: 'Connected',
+      host: isRailway ? 'Railway PostgreSQL' : (process.env.DB_HOST || 'localhost'),
+      name: process.env.DB_NAME || 'railway'
+    };
+
+    // Contar registros si es posible
+    try {
+      const [userCount, businessCount] = await Promise.all([
+        User.count(),
+        Business.count()
+      ]);
+      
+      healthData.counts = {
         users: userCount,
         businesses: businessCount
-      },
-      features: {
-        userManagement: true,
-        permissions: true,
-        businessLocation: true,
-        maps: true
-      }
-    });
-  } catch (error) {
-    res.status(503).json({
-      status: 'ERROR',
-      timestamp: req.appInfo.timestamp,
-      database: {
-        status: 'Disconnected',
-        error: error.message
-      },
-      uptime: `${Math.floor(req.appInfo.uptime)}s`
-    });
+      };
+    } catch (countError) {
+      healthData.counts = { error: 'No se pudieron contar registros' };
+    }
+
+    healthData.features = {
+      userManagement: !!adminUserRoutes,
+      permissions: true,
+      businessLocation: true,
+      maps: true,
+      auth: true
+    };
+
+    res.json(healthData);
+  } catch (dbError) {
+    healthData.status = 'WARNING';
+    healthData.database = {
+      status: 'Disconnected',
+      error: dbError.message
+    };
+    
+    res.status(503).json(healthData);
   }
+});
+
+// ✅ RUTA DE INFORMACIÓN DE LA API
+app.get('/api', (req, res) => {
+  res.json({
+    name: '🚀 Business Map API',
+    version: '2.0.0',
+    description: 'API para gestión de negocios con sistema de usuarios y permisos granulares',
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      health: 'GET /api/health',
+      auth: {
+        login: 'POST /api/auth/login',
+        register: 'POST /api/auth/register',
+        me: 'GET /api/auth/me'
+      },
+      businesses: {
+        list: 'GET /api/businesses',
+        create: 'POST /api/businesses',
+        get: 'GET /api/businesses/:id',
+        update: 'PUT /api/businesses/:id',
+        delete: 'DELETE /api/businesses/:id'
+      },
+      admin: adminUserRoutes ? {
+        users: 'GET /api/admin/users',
+        createUser: 'POST /api/admin/users',
+        getUser: 'GET /api/admin/users/:id',
+        updateUser: 'PUT /api/admin/users/:id',
+        deleteUser: 'DELETE /api/admin/users/:id'
+      } : 'Not available'
+    },
+    features: {
+      '✅ Gestión de usuarios': 'CRUD completo con permisos granulares',
+      '✅ Gestión de negocios': 'Con campos de ubicación expandidos',
+      '✅ Autenticación JWT': 'Sistema seguro de tokens',
+      '✅ Roles y permisos': 'Admin vs Usuario con permisos específicos',
+      '✅ Base de datos': 'PostgreSQL con Sequelize ORM'
+    }
+  });
 });
 
 // Rutas de autenticación
@@ -145,138 +297,178 @@ app.use('/api/businesses', auth, businessRoutes);
 // Rutas de usuarios (protegidas)
 app.use('/api/users', auth, userRoutes);
 
-// ✅ RUTAS DE ADMINISTRACIÓN (solo admins)
-app.use('/api/admin/users', adminUserRoutes);
+// Rutas de administración (solo si están disponibles)
+if (adminUserRoutes) {
+  app.use('/api/admin/users', adminUserRoutes);
+} else {
+  // Ruta de fallback para admin
+  app.use('/api/admin/*', (req, res) => {
+    res.status(501).json({
+      success: false,
+      message: 'Funcionalidad de administración no disponible',
+      error: 'ADMIN_NOT_IMPLEMENTED',
+      suggestion: 'Verifica que el archivo /routes/admin/users.js exista'
+    });
+  });
+}
 
 // ===============================================
 // SERVIR ARCHIVOS ESTÁTICOS EN PRODUCCIÓN
 // ===============================================
-if (environment.isProduction) {
-  // Servir archivos estáticos del frontend
-  app.use(express.static(path.join(__dirname, '../frontend/dist')));
+if (isProduction) {
+  console.log('📁 Configurando archivos estáticos para producción...');
   
-  // Manejar rutas del frontend (SPA)
+  const staticPath = path.join(__dirname, '../frontend/dist');
+  console.log(`📂 Ruta estática: ${staticPath}`);
+  
+  // Verificar que el directorio existe
+  const fs = require('fs');
+  if (fs.existsSync(staticPath)) {
+    app.use(express.static(staticPath));
+    console.log('✅ Archivos estáticos configurados');
+  } else {
+    console.warn('⚠️ Directorio de archivos estáticos no encontrado');
+  }
+  
+  // SPA - Manejar todas las rutas del frontend
   app.get('*', (req, res) => {
-    // Excluir rutas de API
     if (req.path.startsWith('/api/')) {
       return res.status(404).json({
         success: false,
-        message: 'Endpoint no encontrado',
+        message: 'Endpoint de API no encontrado',
         error: 'NOT_FOUND',
-        path: req.path
+        path: req.path,
+        availableEndpoints: [
+          '/api/health',
+          '/api/auth/*',
+          '/api/businesses/*',
+          '/api/users/*',
+          '/api/admin/*'
+        ]
       });
     }
     
-    res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+    const indexPath = path.join(staticPath, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      res.status(404).json({
+        success: false,
+        message: 'Frontend no disponible',
+        error: 'FRONTEND_NOT_FOUND'
+      });
+    }
   });
 } else {
-  // ✅ PÁGINA DE BIENVENIDA MEJORADA PARA DESARROLLO
+  // Página de bienvenida para desarrollo
   app.get('/', (req, res) => {
     res.json({
       message: '🚀 Business Map API Server',
       version: '2.0.0',
       status: 'Development Mode',
-      timestamp: req.appInfo.timestamp,
-      uptime: `${Math.floor(req.appInfo.uptime)}s`,
+      timestamp: new Date().toISOString(),
+      uptime: `${Math.floor(process.uptime())}s`,
+      environment: {
+        node: process.version,
+        platform: process.platform,
+        arch: process.arch
+      },
       links: {
         frontend: 'http://localhost:5173',
+        api: `http://localhost:${PORT}/api`,
         health: `http://localhost:${PORT}/api/health`,
-        docs: 'https://github.com/tu-usuario/business-map'
+        adminPanel: 'http://localhost:5173/admin'
       },
-      available_endpoints: {
-        auth: {
-          login: 'POST /api/auth/login',
-          register: 'POST /api/auth/register',
-          me: 'GET /api/auth/me'
-        },
-        businesses: {
-          list: 'GET /api/businesses',
-          create: 'POST /api/businesses',
-          update: 'PUT /api/businesses/:id',
-          delete: 'DELETE /api/businesses/:id'
-        },
-        admin: {
-          users: 'GET /api/admin/users',
-          createUser: 'POST /api/admin/users',
-          updateUser: 'PUT /api/admin/users/:id',
-          deleteUser: 'DELETE /api/admin/users/:id'
-        }
-      },
-      features: {
-        userManagement: '✅ Gestión completa de usuarios',
-        permissions: '✅ Sistema de permisos granulares',
-        businessLocation: '✅ Campos de ubicación expandidos',
-        maps: '✅ Mapas interactivos con Google Maps'
+      defaultCredentials: {
+        admin: { username: 'admin', password: 'admin123' },
+        user: { username: 'user', password: 'user123' }
       }
     });
   });
 }
 
 // ===============================================
-// MIDDLEWARE DE MANEJO DE ERRORES MEJORADO
+// MIDDLEWARE DE MANEJO DE ERRORES
 // ===============================================
 app.use((err, req, res, next) => {
   const timestamp = new Date().toISOString();
   const errorId = Math.random().toString(36).substr(2, 9);
   
-  console.error(`❌ [${errorId}] ${timestamp} - Error del servidor:`, err);
-  
-  // Error de validación de Sequelize
+  // Log detallado del error
+  console.error(`❌ [${errorId}] ${timestamp} - Error:`, {
+    message: err.message,
+    stack: isProduction ? 'Hidden in production' : err.stack,
+    url: req.url,
+    method: req.method,
+    ip: req.ip,
+    userAgent: req.get('User-Agent')
+  });
+
+  // Respuesta base del error
+  const errorResponse = {
+    success: false,
+    errorId,
+    timestamp,
+    path: req.path,
+    method: req.method
+  };
+
+  // Errores específicos de Sequelize
   if (err.name === 'SequelizeValidationError') {
     return res.status(400).json({
-      success: false,
-      message: 'Error de validación',
+      ...errorResponse,
+      message: 'Error de validación de datos',
       error: 'VALIDATION_ERROR',
-      errorId,
       details: err.errors.map(e => ({
         field: e.path,
         message: e.message,
-        value: e.value
+        value: isProduction ? 'Hidden' : e.value
       }))
     });
   }
-  
-  // Error de restricción única
+
   if (err.name === 'SequelizeUniqueConstraintError') {
     return res.status(400).json({
-      success: false,
-      message: 'Recurso ya existe',
+      ...errorResponse,
+      message: 'El recurso ya existe',
       error: 'DUPLICATE_RESOURCE',
-      errorId,
       field: err.errors[0]?.path
     });
   }
-  
-  // Error de conexión a la base de datos
+
   if (err.name === 'SequelizeConnectionError') {
     return res.status(503).json({
-      success: false,
+      ...errorResponse,
       message: 'Error de conexión a la base de datos',
-      error: 'DATABASE_CONNECTION_ERROR',
-      errorId
+      error: 'DATABASE_CONNECTION_ERROR'
     });
   }
-  
-  // Error de autenticación
+
+  // Errores de autenticación
   if (err.name === 'JsonWebTokenError') {
     return res.status(401).json({
-      success: false,
-      message: 'Token inválido',
-      error: 'INVALID_TOKEN',
-      errorId
+      ...errorResponse,
+      message: 'Token de autenticación inválido',
+      error: 'INVALID_TOKEN'
     });
   }
-  
+
+  if (err.name === 'TokenExpiredError') {
+    return res.status(401).json({
+      ...errorResponse,
+      message: 'Token de autenticación expirado',
+      error: 'TOKEN_EXPIRED'
+    });
+  }
+
   // Error genérico
   res.status(500).json({
-    success: false,
+    ...errorResponse,
     message: 'Error interno del servidor',
     error: 'INTERNAL_ERROR',
-    errorId,
-    timestamp,
-    ...(environment.isProduction ? {} : { 
-      stack: err.stack,
-      details: err.message 
+    ...(isProduction ? {} : { 
+      details: err.message,
+      stack: err.stack 
     })
   });
 });
@@ -289,7 +481,14 @@ app.use('*', (req, res) => {
     error: 'NOT_FOUND',
     path: req.originalUrl,
     method: req.method,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    availableRoutes: [
+      'GET /api',
+      'GET /api/health',
+      'POST /api/auth/login',
+      'GET /api/businesses',
+      'GET /api/admin/users'
+    ]
   });
 });
 
@@ -299,101 +498,179 @@ app.use('*', (req, res) => {
 const startServer = async () => {
   try {
     console.log('🚀 Iniciando Business Map Server v2.0.0...');
-    console.log(`🌍 Entorno: ${environment.isProduction ? 'Producción' : 'Desarrollo'}`);
-    console.log(`🏠 Base de datos: ${environment.database} en ${environment.host}`);
+    console.log(`📦 Node.js: ${process.version}`);
+    console.log(`🖥️ Plataforma: ${process.platform} ${process.arch}`);
     
-    // ✅ USAR FUNCIÓN MEJORADA DE INICIALIZACIÓN
-    const dbReady = await initializeDatabase();
-    if (!dbReady && environment.isProduction) {
-      console.error('❌ No se pudo inicializar la base de datos en producción');
-      process.exit(1);
+    // Probar conexión a BD
+    const connectionOk = await testConnection();
+    if (!connectionOk) {
+      if (isProduction) {
+        console.error('❌ Error crítico: No se pudo conectar a la base de datos en producción');
+        process.exit(1);
+      } else {
+        console.warn('⚠️ Continuando sin conexión a BD (modo desarrollo)');
+      }
     }
     
-    // Configurar asociaciones
-    setupAssociations();
+    // Configurar asociaciones de modelos
+    if (connectionOk) {
+      setupAssociations();
+    }
     
-    // Sincronizar modelos (solo en desarrollo)
-    if (!environment.isProduction) {
+    // Verificaciones en desarrollo
+    if (!isProduction && connectionOk) {
       try {
+        // Sincronizar modelos sin alterar estructura
         await sequelize.sync({ alter: false });
         console.log('✅ Modelos sincronizados con la base de datos');
+        
+        // Verificar estructura de tablas
+        const tablesOk = await verifyTables();
+        if (!tablesOk) {
+          console.warn('⚠️ Algunas tablas pueden estar faltando');
+        }
+        
+        // Verificar datos iniciales
+        await verifyInitialData();
+        
       } catch (syncError) {
-        console.warn('⚠️ No se pudieron sincronizar todos los modelos:', syncError.message);
+        console.warn('⚠️ Advertencias durante la sincronización:', syncError.message);
       }
     }
     
-    // ✅ VERIFICACIONES ADICIONALES
-    try {
-      const userCount = await User.count();
-      const businessCount = await Business.count();
-      
-      console.log(`📊 Estado de la base de datos:`);
-      console.log(`   👥 Usuarios: ${userCount}`);
-      console.log(`   🏢 Negocios: ${businessCount}`);
-      
-      if (userCount === 0 && !environment.isProduction) {
-        console.log('⚠️ No hay usuarios en la base de datos');
-        console.log('💡 Ejecuta el script SQL de inicialización para crear usuarios por defecto');
+    // Verificar estado en producción
+    if (isProduction && connectionOk) {
+      try {
+        const userCount = await User.count();
+        const businessCount = await Business.count();
+        console.log(`📊 Estado BD: ${userCount} usuarios, ${businessCount} negocios`);
+        
+        if (userCount === 0) {
+          console.warn('⚠️ No hay usuarios en producción - verificar migración');
+        }
+      } catch (countError) {
+        console.warn('⚠️ No se pudieron obtener estadísticas:', countError.message);
       }
-    } catch (countError) {
-      console.warn('⚠️ No se pudieron contar registros:', countError.message);
     }
     
-    // Iniciar servidor
+    // Mostrar información de rutas disponibles
+    console.log('🛣️ Rutas configuradas:');
+    console.log('   📡 /api/health - Estado del servidor');
+    console.log('   🔐 /api/auth/* - Autenticación');
+    console.log('   🏢 /api/businesses/* - Gestión de negocios');
+    console.log('   👤 /api/users/* - Perfil de usuario');
+    console.log(`   👥 /api/admin/* - Administración ${adminUserRoutes ? '✅' : '❌'}`);
+    
+    // Iniciar servidor HTTP
     const server = app.listen(PORT, () => {
-      console.log(`🌟 Servidor corriendo en puerto ${PORT}`);
+      console.log(`🌟 Servidor HTTP iniciado en puerto ${PORT}`);
       
-      if (!environment.isProduction) {
-        console.log(`📱 Frontend: http://localhost:5173`);
-        console.log(`🔧 API: http://localhost:${PORT}/api`);
-        console.log(`💊 Health Check: http://localhost:${PORT}/api/health`);
-        console.log(`👥 Admin Panel: http://localhost:5173/admin`);
+      if (!isProduction) {
+        console.log('🔗 URLs de desarrollo:');
+        console.log(`   📱 Frontend: http://localhost:5173`);
+        console.log(`   🔧 API: http://localhost:${PORT}/api`);
+        console.log(`   💊 Health: http://localhost:${PORT}/api/health`);
+        console.log(`   👥 Admin: http://localhost:5173/admin`);
+        console.log('');
+        console.log('👤 Credenciales por defecto:');
+        console.log('   Admin: admin / admin123');
+        console.log('   User:  user / user123');
+      } else {
+        const baseUrl = process.env.RAILWAY_STATIC_URL || 'railway-app-url';
+        console.log(`🌐 Aplicación en producción: ${baseUrl}`);
+        console.log(`💊 Health check: ${baseUrl}/api/health`);
       }
       
       console.log('==========================================');
       console.log('✅ Business Map Server v2.0.0 listo');
-      console.log('🎉 Gestión de usuarios habilitada');
+      console.log('🎉 Características habilitadas:');
+      console.log('   🔐 Sistema de autenticación JWT');
+      console.log('   👥 Gestión de usuarios y permisos');
+      console.log('   🏢 Gestión de negocios con ubicación');
+      console.log('   📍 Campos expandidos: distrito, sector, anexo');
+      console.log('   📧 Email opcional en formularios');
+      console.log('   🗺️ Integración con Google Maps');
       console.log('==========================================');
     });
 
-    // ✅ CONFIGURAR CIERRE GRACEFUL DEL SERVIDOR
+    // Configurar cierre graceful del servidor
     const gracefulShutdown = async (signal) => {
-      console.log(`\n📴 Recibida señal ${signal}, iniciando cierre graceful...`);
+      console.log(`\n📴 Señal ${signal} recibida, iniciando cierre graceful...`);
       
+      // Dar tiempo para que las conexiones actuales terminen
       server.close(async () => {
-        console.log('🚪 Servidor HTTP cerrado');
-        await closeConnection();
+        console.log('🚪 Servidor HTTP cerrado correctamente');
+        
+        // Cerrar conexión a la base de datos
+        try {
+          await sequelize.close();
+          console.log('📡 Conexión a base de datos cerrada');
+        } catch (closeError) {
+          console.error('❌ Error cerrando conexión BD:', closeError.message);
+        }
+        
         console.log('👋 Proceso terminado correctamente');
         process.exit(0);
       });
       
-      // Forzar cierre después de 10 segundos
+      // Timeout de seguridad - forzar cierre después de 10 segundos
       setTimeout(() => {
-        console.error('⏰ Forzando cierre después de 10 segundos');
+        console.error('⏰ Timeout alcanzado, forzando cierre del proceso');
         process.exit(1);
       }, 10000);
     };
 
+    // Registrar manejadores de señales del sistema
     process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
     process.on('SIGINT', () => gracefulShutdown('SIGINT'));
     
-  } catch (error) {
-    console.error('❌ Error iniciando el servidor:', error);
+    // Manejar errores no capturados
+    process.on('uncaughtException', (error) => {
+      console.error('❌ Excepción no capturada:', error);
+      gracefulShutdown('UNCAUGHT_EXCEPTION');
+    });
     
-    if (error.name === 'SequelizeConnectionError') {
-      console.error('💡 Verifica:');
-      console.error('   - Que PostgreSQL esté corriendo');
-      console.error('   - Las credenciales en .env');
-      console.error('   - Que la base de datos exista');
-      console.error('   - Los permisos de usuario');
+    process.on('unhandledRejection', (reason, promise) => {
+      console.error('❌ Promesa rechazada no manejada:', reason);
+      gracefulShutdown('UNHANDLED_REJECTION');
+    });
+    
+  } catch (error) {
+    console.error('❌ Error crítico iniciando el servidor:', error);
+    console.error(`📍 Detalles del error:`, {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
+    
+    // Sugerencias específicas según el tipo de error
+    if (error.code === 'MODULE_NOT_FOUND') {
+      console.error('💡 Posibles causas:');
+      console.error('   - Archivo faltante en la estructura del proyecto');
+      console.error('   - Error en las rutas de importación');
+      console.error('   - Dependencia no instalada');
+      console.error('');
+      console.error('🔧 Verificar que existan estos archivos:');
+      console.error('   - ./config/database.js');
+      console.error('   - ./models/User.js');
+      console.error('   - ./models/Business.js');
+      console.error('   - ./routes/auth.js');
+      console.error('   - ./middleware/auth.js');
+    } else if (error.name === 'SequelizeConnectionError') {
+      console.error('💡 Problema de base de datos:');
+      console.error('   - Verificar variables de entorno');
+      console.error('   - Confirmar que PostgreSQL esté corriendo');
+      console.error('   - Validar credenciales de conexión');
     }
     
-    await closeConnection();
     process.exit(1);
   }
 };
 
-// Iniciar servidor
-startServer();
+// Iniciar el servidor
+startServer().catch((error) => {
+  console.error('❌ Error fatal en startServer:', error);
+  process.exit(1);
+});
 
 module.exports = app;
