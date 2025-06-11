@@ -329,13 +329,14 @@ const Dashboard = () => {
             
             <button 
               onClick={() => {
-                window.open('https://www.google.com/maps', '_blank');
+                // Redirigir a la página del mapa
+                window.location.href = '/map';
               }}
               className="quick-link-card clickable"
             >
               <span className="icon">🗺️</span>
-              <h3>Google Maps</h3>
-              <p>Abrir Google Maps en nueva pestaña</p>
+              <h3>Ver Mapa</h3>
+              <p>Explorar negocios en mapa interactivo</p>
             </button>
             
             <Link to="/api/health" className="quick-link-card" target="_blank">

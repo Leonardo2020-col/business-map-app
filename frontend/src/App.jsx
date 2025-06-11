@@ -7,6 +7,7 @@ import PublicRoute from './components/PublicRoute';
 // Importar componentes
 import Login from './components/Login/Login';
 import Dashboard from './components/Dashboard/Dashboard';
+import MapPage from './pages/MapPage';
 import BusinessForm from './components/BusinessForm/BusinessForm';
 import Profile from './components/Profile';
 import UserManagement from './components/UserManagement/UserManagement';
@@ -45,6 +46,15 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Dashboard />
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/map" 
+              element={
+                <ProtectedRoute>
+                  <MapPage />
                 </ProtectedRoute>
               } 
             />
