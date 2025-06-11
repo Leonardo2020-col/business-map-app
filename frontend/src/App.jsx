@@ -8,6 +8,7 @@ import PublicRoute from './components/PublicRoute';
 import Login from './components/Login/Login';
 import Dashboard from './components/Dashboard/Dashboard';
 import MapPage from './pages/MapPage';
+import BusinessesPage from './pages/BusinessesPage'; // ✅ NUEVA IMPORTACIÓN
 import BusinessForm from './components/BusinessForm/BusinessForm';
 import Profile from './components/Profile';
 import UserManagement from './components/UserManagement/UserManagement';
@@ -59,6 +60,16 @@ function App() {
               } 
             />
             
+            {/* ✅ NUEVA RUTA PARA LA LISTA COMPLETA DE NEGOCIOS */}
+            <Route 
+              path="/businesses" 
+              element={
+                <ProtectedRoute>
+                  <BusinessesPage />
+                </ProtectedRoute>
+              } 
+            />
+            
             <Route 
               path="/profile" 
               element={
@@ -79,6 +90,25 @@ function App() {
             
             <Route 
               path="/business/edit/:id" 
+              element={
+                <ProtectedRoute>
+                  <BusinessForm />
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/* ✅ OPCIONAL: También agregar rutas alternativas para editar */}
+            <Route 
+              path="/businesses/edit/:id" 
+              element={
+                <ProtectedRoute>
+                  <BusinessForm />
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/businesses/new" 
               element={
                 <ProtectedRoute>
                   <BusinessForm />
