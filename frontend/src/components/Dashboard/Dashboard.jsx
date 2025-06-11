@@ -2,12 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { businessAPI } from '../../services/api';
+// ✅ CORREGIR la importación - quitar "components/"
+import { RecentBusinessesSection } from '../BusinessTable/BusinessTable';
 import Navbar from '../Navbar';
 import './Dashborad.css';
 
 const Dashboard = () => {
   const { user, logout, isAdmin } = useAuth();
-  const [businesses, setBusinesses] = useState([]);
+  // ✅ ELIMINAR estos estados ya que RecentBusinessesSection maneja sus propios datos
+  // const [businesses, setBusinesses] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -23,18 +26,8 @@ const Dashboard = () => {
       setError('');
       console.log('📊 Cargando datos del dashboard...');
 
-      // Cargar negocios y estadísticas en paralelo
-      const promises = [
-        businessAPI.getAll({ limit: 10 }),
-        businessAPI.getStats()
-      ];
-
-      const [businessResponse, statsResponse] = await Promise.all(promises);
-
-      if (businessResponse.success) {
-        setBusinesses(businessResponse.data || []);
-        console.log(`✅ ${businessResponse.data?.length || 0} negocios cargados`);
-      }
+      // ✅ SOLO cargar estadísticas, no negocios (RecentBusinessesSection se encarga)
+      const statsResponse = await businessAPI.getStats();
 
       if (statsResponse.success) {
         setStats(statsResponse.data);
@@ -178,94 +171,8 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* Recent Businesses */}
-        <div className="dashboard-section">
-          <div className="section-header">
-            <h2>Negocios Recientes</h2>
-            <Link to="/businesses" className="view-all-link">
-              Ver todos →
-            </Link>
-          </div>
-          
-          {businesses.length > 0 ? (
-            <div className="businesses-grid">
-              {businesses.slice(0, 6).map((business) => (
-                <div key={business.id} className="business-card">
-                  <div className="business-header">
-                    <h3>{business.name}</h3>
-                    <span className="business-type">{business.business_type}</span>
-                  </div>
-                  
-                  <div className="business-details">
-                    <p className="business-address">
-                      <span className="icon">📍</span>
-                      {business.address}
-                    </p>
-                    
-                    {business.phone && (
-                      <p className="business-phone">
-                        <span className="icon">📞</span>
-                        {business.phone}
-                      </p>
-                    )}
-                    
-                    {business.email && (
-                      <p className="business-email">
-                        <span className="icon">✉️</span>
-                        {business.email}
-                      </p>
-                    )}
-                    
-                    {business.website && (
-                      <p className="business-website">
-                        <span className="icon">🌐</span>
-                        <a href={business.website} target="_blank" rel="noopener noreferrer">
-                          Sitio web
-                        </a>
-                      </p>
-                    )}
-                  </div>
-                  
-                  <div className="business-actions">
-                    <Link 
-                      to={`/business/edit/${business.id}`} 
-                      className="btn btn-sm btn-outline"
-                    >
-                      ✏️ Editar
-                    </Link>
-                    
-                    {business.latitude && business.longitude && (
-                      <button 
-                        className="btn btn-sm btn-primary"
-                        onClick={() => {
-                          const url = `https://www.google.com/maps?q=${business.latitude},${business.longitude}`;
-                          window.open(url, '_blank');
-                        }}
-                      >
-                        🗺️ Ver en Mapa
-                      </button>
-                    )}
-                  </div>
-                  
-                  <div className="business-meta">
-                    <span className="created-date">
-                      Creado: {new Date(business.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="empty-state">
-              <div className="empty-icon">🏢</div>
-              <h3>No hay negocios aún</h3>
-              <p>Comienza agregando tu primer negocio al directorio</p>
-              <Link to="/business/new" className="btn btn-primary">
-                ➕ Agregar Primer Negocio
-              </Link>
-            </div>
-          )}
-        </div>
+        {/* ✅ SECCIÓN DE NEGOCIOS RECIENTES CORREGIDA */}
+        <RecentBusinessesSection />
 
         {/* Business Types Overview */}
         {stats?.byType && stats.byType.length > 0 && (
@@ -337,7 +244,7 @@ const Dashboard = () => {
               <span className="icon">🗺️</span>
               <h3>Ver Mapa</h3>
               <p>Explorar negocios en mapa interactivo</p>
-            </button>
+            </Link>
             
             <Link to="/api/health" className="quick-link-card" target="_blank">
               <span className="icon">💊</span>

@@ -4,6 +4,448 @@ import { businessAPI } from '../../services/api';
 import LoadingSpinner from '../LoadingSpinner';
 import './BusinessTable.css';
 
+// ============================================================================
+// COMPONENTE BASE DE TABLA - Reutilizable para Dashboard y página completa
+// ============================================================================
+const BusinessTableBase = ({ 
+  businesses = [], 
+  loading = false, 
+  error = null, 
+  onDelete = null,
+  showActions = true,
+  maxRows = null,
+  compact = false 
+}) => {
+  const navigate = useNavigate();
+
+  const handleDelete = async (business) => {
+    if (!onDelete) return;
+    
+    if (!window.confirm(`¿Estás seguro de que quieres eliminar "${business.name}"?`)) {
+      return;
+    }
+    
+    onDelete(business.id);
+  };
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('es-PE', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
+  // Limitar filas si se especifica maxRows
+  const displayBusinesses = maxRows ? businesses.slice(0, maxRows) : businesses;
+
+  if (loading) {
+    return (
+      <div className="table-loading">
+        <LoadingSpinner />
+        <p>Cargando negocios...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="table-error">
+        <span>⚠️ {error}</span>
+      </div>
+    );
+  }
+
+  if (businesses.length === 0) {
+    return (
+      <div className="table-empty">
+        <div className="empty-icon">🏢</div>
+        <h3>No hay negocios registrados</h3>
+        <p>Los negocios aparecerán aquí una vez que sean creados.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`business-table-wrapper ${compact ? 'compact' : ''}`}>
+      {/* Tabla para Desktop */}
+      <div className="table-container">
+        <table className="business-table">
+          <thead>
+            <tr>
+              <th>Negocio</th>
+              <th>Tipo</th>
+              <th>Ubicación</th>
+              <th>Contacto</th>
+              {!compact && <th>Fecha</th>}
+              {showActions && <th>Acciones</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {displayBusinesses.map(business => (
+              <tr key={business.id} className="business-row">
+                {/* Nombre y descripción */}
+                <td className="business-name-cell">
+                  <div className="business-info">
+                    <div className="business-name">{business.name || 'Sin nombre'}</div>
+                    {business.description && !compact && (
+                      <div className="business-description">
+                        {business.description.length > 60 
+                          ? `${business.description.substring(0, 60)}...`
+                          : business.description
+                        }
+                      </div>
+                    )}
+                  </div>
+                </td>
+                
+                {/* Tipo de negocio */}
+                <td className="business-type-cell">
+                  <span className="business-type-badge">
+                    {business.business_type || 'No especificado'}
+                  </span>
+                </td>
+                
+                {/* Ubicación completa */}
+                <td className="location-cell">
+                  <div className="location-info">
+                    <div className="address">
+                      {business.address?.length > 40 
+                        ? `${business.address.substring(0, 40)}...`
+                        : business.address || 'No especificada'
+                      }
+                    </div>
+                    
+                    {/* Ubicación adicional */}
+                    <div className="location-extras">
+                      {business.distrito && (
+                        <span className="location-tag distrito">🏛️ {business.distrito}</span>
+                      )}
+                      {business.sector && (
+                        <span className="location-tag sector">📍 {business.sector}</span>
+                      )}
+                      {business.anexo && (
+                        <span className="location-tag anexo">🏘️ {business.anexo}</span>
+                      )}
+                    </div>
+                    
+                    {/* Coordenadas */}
+                    {business.latitude && business.longitude && (
+                      <div className="coordinates">
+                        <span className="coords-badge">📍 Coordenadas disponibles</span>
+                      </div>
+                    )}
+                  </div>
+                </td>
+                
+                {/* Contacto */}
+                <td className="contact-cell">
+                  <div className="contact-info">
+                    {business.phone && (
+                      <div className="contact-item">
+                        <span className="contact-icon">📞</span>
+                        <a href={`tel:${business.phone}`} className="contact-link">
+                          {business.phone}
+                        </a>
+                      </div>
+                    )}
+                    {business.email && (
+                      <div className="contact-item">
+                        <span className="contact-icon">✉️</span>
+                        <a href={`mailto:${business.email}`} className="contact-link">
+                          {business.email.length > 20 
+                            ? `${business.email.substring(0, 20)}...`
+                            : business.email
+                          }
+                        </a>
+                      </div>
+                    )}
+                    {!business.phone && !business.email && (
+                      <span className="no-contact">Sin contacto</span>
+                    )}
+                  </div>
+                </td>
+                
+                {/* Fecha (solo en modo no compacto) */}
+                {!compact && (
+                  <td className="date-cell">
+                    <div className="date-info">
+                      <div className="created-date">
+                        {formatDate(business.created_at)}
+                      </div>
+                      {business.updated_at !== business.created_at && (
+                        <div className="updated-date">
+                          Actualizado: {formatDate(business.updated_at)}
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                )}
+                
+                {/* Acciones */}
+                {showActions && (
+                  <td className="actions-cell">
+                    <div className="action-buttons">
+                      <button
+                        onClick={() => navigate(`/businesses/edit/${business.id}`)}
+                        className="btn btn-sm btn-edit"
+                        title="Editar negocio"
+                      >
+                        ✏️
+                      </button>
+                      
+                      {business.latitude && business.longitude && (
+                        <button
+                          onClick={() => navigate(`/map?business=${business.id}`)}
+                          className="btn btn-sm btn-map"
+                          title="Ver en mapa"
+                        >
+                          🗺️
+                        </button>
+                      )}
+                      
+                      <button
+                        onClick={() => handleDelete(business)}
+                        className="btn btn-sm btn-delete"
+                        title="Eliminar negocio"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Cards para móvil - Simplificado para dashboard */}
+      <div className="business-cards">
+        {displayBusinesses.map(business => (
+          <BusinessCard 
+            key={business.id} 
+            business={business} 
+            onDelete={handleDelete}
+            showActions={showActions}
+            compact={compact}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ============================================================================
+// COMPONENTE CARD PARA MÓVIL
+// ============================================================================
+const BusinessCard = ({ business, onDelete, showActions = true, compact = false }) => {
+  const navigate = useNavigate();
+
+  return (
+    <div className={`business-card ${compact ? 'compact' : ''}`}>
+      <div className="business-card-header">
+        <h3 className="business-card-title">{business.name || 'Sin nombre'}</h3>
+        <span className="business-card-type">
+          {business.business_type || 'No especificado'}
+        </span>
+      </div>
+      
+      {business.description && !compact && (
+        <div className="business-card-description">
+          {business.description.length > 100 
+            ? `${business.description.substring(0, 100)}...`
+            : business.description
+          }
+        </div>
+      )}
+      
+      <div className="business-card-details">
+        {/* Dirección */}
+        <div className="business-card-detail">
+          <span className="detail-icon">📍</span>
+          <div className="detail-content">
+            <div className="detail-label">Dirección</div>
+            <div className="detail-value">{business.address || 'No especificada'}</div>
+            
+            {/* Ubicación adicional */}
+            {(business.distrito || business.sector || business.anexo) && (
+              <div className="location-extras">
+                {business.distrito && (
+                  <span className="location-tag">🏛️ {business.distrito}</span>
+                )}
+                {business.sector && (
+                  <span className="location-tag">📍 {business.sector}</span>
+                )}
+                {business.anexo && (
+                  <span className="location-tag">🏘️ {business.anexo}</span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* Contacto */}
+        {(business.phone || business.email) && (
+          <div className="business-card-detail">
+            <span className="detail-icon">📞</span>
+            <div className="detail-content">
+              <div className="detail-label">Contacto</div>
+              <div className="detail-value">
+                {business.phone && (
+                  <a href={`tel:${business.phone}`}>{business.phone}</a>
+                )}
+                {business.phone && business.email && <br />}
+                {business.email && (
+                  <a href={`mailto:${business.email}`}>{business.email}</a>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Coordenadas */}
+        {business.latitude && business.longitude && (
+          <div className="business-card-detail">
+            <span className="detail-icon">🗺️</span>
+            <div className="detail-content">
+              <div className="detail-label">Ubicación</div>
+              <div className="detail-value">
+                <span className="coords-badge">📍 Coordenadas disponibles</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+      
+      {showActions && (
+        <div className="business-card-actions">
+          <button
+            onClick={() => navigate(`/businesses/edit/${business.id}`)}
+            className="btn btn-edit"
+            title="Editar negocio"
+          >
+            ✏️ Editar
+          </button>
+          
+          {business.latitude && business.longitude && (
+            <button
+              onClick={() => navigate(`/map?business=${business.id}`)}
+              className="btn btn-map"
+              title="Ver en mapa"
+            >
+              🗺️ Mapa
+            </button>
+          )}
+          
+          <button
+            onClick={() => onDelete(business)}
+            className="btn btn-delete"
+            title="Eliminar negocio"
+          >
+            🗑️ Eliminar
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================================================
+// COMPONENTE PARA EL DASHBOARD (SIN FILTROS)
+// ============================================================================
+export const RecentBusinessesSection = () => {
+  const [businesses, setBusinesses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    loadRecentBusinesses();
+  }, []);
+
+  const loadRecentBusinesses = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      const response = await businessAPI.getAll({
+        limit: 10,
+        sortBy: 'created_at',
+        sortOrder: 'DESC'
+      });
+      
+      let businessesData = [];
+      if (response.data && response.data.success) {
+        businessesData = response.data.data || [];
+      } else if (response.data && Array.isArray(response.data)) {
+        businessesData = response.data;
+      }
+      
+      setBusinesses(businessesData);
+    } catch (error) {
+      console.error('Error cargando negocios recientes:', error);
+      setError('Error cargando negocios recientes');
+      setBusinesses([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (businessId) => {
+    try {
+      await businessAPI.delete(businessId);
+      setBusinesses(prev => prev.filter(business => business.id !== businessId));
+      alert('Negocio eliminado exitosamente');
+    } catch (error) {
+      console.error('Error eliminando negocio:', error);
+      alert('Error al eliminar el negocio');
+    }
+  };
+
+  const handleViewAll = () => {
+    navigate('/businesses');
+  };
+
+  return (
+    <div className="recent-businesses-section">
+      <div className="section-header">
+        <h2>Negocios Recientes</h2>
+        <button 
+          className="view-all-btn"
+          onClick={handleViewAll}
+        >
+          Ver todos →
+        </button>
+      </div>
+      
+      <BusinessTableBase
+        businesses={businesses}
+        loading={loading}
+        error={error}
+        onDelete={handleDelete}
+        maxRows={5}
+        compact={true}
+        showActions={true}
+      />
+      
+      {businesses.length > 5 && (
+        <div className="show-more">
+          <button 
+            className="btn btn-outline"
+            onClick={handleViewAll}
+          >
+            Ver todos los {businesses.length} negocios →
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================================================
+// COMPONENTE COMPLETO CON FILTROS (PÁGINA DEDICADA)
+// ============================================================================
 const BusinessTable = () => {
   const [businesses, setBusinesses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -13,10 +455,7 @@ const BusinessTable = () => {
   const [businessTypes, setBusinessTypes] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
-  
-  const navigate = useNavigate();
 
-  // Cargar datos cuando el componente se monta
   useEffect(() => {
     loadBusinesses();
     loadBusinessTypes();
@@ -27,24 +466,17 @@ const BusinessTable = () => {
       setLoading(true);
       setError(null);
       
-      console.log('📋 Cargando lista de negocios...');
       const response = await businessAPI.getAll();
-      
-      console.log('✅ Negocios cargados:', response.data);
-      
-      // Asegurarse de que data es un array
       const businessesData = response.data?.data || response.data || [];
       
       if (Array.isArray(businessesData)) {
         setBusinesses(businessesData);
       } else {
-        console.warn('⚠️ Los datos no son un array:', businessesData);
         setBusinesses([]);
         setError('Los datos recibidos no tienen el formato esperado');
       }
-      
     } catch (err) {
-      console.error('❌ Error cargando negocios:', err);
+      console.error('Error cargando negocios:', err);
       setError(err.response?.data?.message || 'Error al cargar los negocios');
       setBusinesses([]);
     } finally {
@@ -58,49 +490,23 @@ const BusinessTable = () => {
       const types = response.data?.data || response.data || [];
       setBusinessTypes(Array.isArray(types) ? types : []);
     } catch (err) {
-      console.error('❌ Error cargando tipos de negocio:', err);
+      console.error('Error cargando tipos de negocio:', err);
       setBusinessTypes([]);
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('¿Estás seguro de que quieres eliminar este negocio?')) {
-      return;
-    }
-
+  const handleDelete = async (businessId) => {
     try {
-      await businessAPI.delete(id);
-      console.log('✅ Negocio eliminado:', id);
-      
-      // Actualizar la lista local
-      setBusinesses(prev => prev.filter(business => business.id !== id));
-      
-      // Mostrar mensaje de éxito
+      await businessAPI.delete(businessId);
+      setBusinesses(prev => prev.filter(business => business.id !== businessId));
       alert('Negocio eliminado exitosamente');
-      
     } catch (err) {
-      console.error('❌ Error eliminando negocio:', err);
+      console.error('Error eliminando negocio:', err);
       alert('Error al eliminar el negocio: ' + (err.response?.data?.message || err.message));
     }
   };
 
-  // ✅ FUNCIÓN HELPER para formatear la dirección completa
-  const formatFullAddress = (business) => {
-    let fullAddress = business.address || '';
-    const locationParts = [];
-    
-    if (business.sector) locationParts.push(`Sector: ${business.sector}`);
-    if (business.anexo) locationParts.push(`Anexo: ${business.anexo}`);
-    if (business.distrito) locationParts.push(`Distrito: ${business.distrito}`);
-    
-    if (locationParts.length > 0) {
-      fullAddress += ` (${locationParts.join(', ')})`;
-    }
-    
-    return fullAddress;
-  };
-
-  // Filtrar negocios según búsqueda y tipo - ✅ INCLUIR NUEVOS CAMPOS EN LA BÚSQUEDA
+  // Filtrar negocios
   const filteredBusinesses = businesses.filter(business => {
     if (!business) return false;
     
@@ -122,114 +528,9 @@ const BusinessTable = () => {
   const endIndex = startIndex + itemsPerPage;
   const currentBusinesses = filteredBusinesses.slice(startIndex, endIndex);
 
-  // Cambiar página
   const goToPage = (page) => {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
   };
-
-  // ✅ COMPONENTE CARD ACTUALIZADO para móvil
-  const BusinessCard = ({ business }) => (
-    <div className="business-card">
-      <div className="business-card-header">
-        <h3 className="business-card-title">{business.name || 'Sin nombre'}</h3>
-        <span className="business-card-type">
-          {business.business_type || 'No especificado'}
-        </span>
-      </div>
-      
-      {business.description && (
-        <div className="business-card-description">
-          {business.description}
-        </div>
-      )}
-      
-      <div className="business-card-details">
-        {/* ✅ DIRECCIÓN COMPLETA CON NUEVOS CAMPOS */}
-        <div className="business-card-detail">
-          <span className="detail-icon">📍</span>
-          <div className="detail-content">
-            <div className="detail-label">Dirección</div>
-            <div className="detail-value">{business.address || 'No especificada'}</div>
-            {/* ✅ MOSTRAR CAMPOS DE UBICACIÓN ADICIONALES */}
-            {(business.distrito || business.sector || business.anexo) && (
-              <div className="location-extras">
-                {business.distrito && (
-                  <span className="location-tag">🏛️ {business.distrito}</span>
-                )}
-                {business.sector && (
-                  <span className="location-tag">📍 {business.sector}</span>
-                )}
-                {business.anexo && (
-                  <span className="location-tag">🏘️ {business.anexo}</span>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-        
-        {business.phone && (
-          <div className="business-card-detail">
-            <span className="detail-icon">📞</span>
-            <div className="detail-content">
-              <div className="detail-label">Teléfono</div>
-              <div className="detail-value">
-                <a href={`tel:${business.phone}`}>
-                  {business.phone}
-                </a>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {business.email && (
-          <div className="business-card-detail">
-            <span className="detail-icon">✉️</span>
-            <div className="detail-content">
-              <div className="detail-label">Email</div>
-              <div className="detail-value">
-                <a href={`mailto:${business.email}`}>
-                  {business.email}
-                </a>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        <div className="business-card-detail">
-          <span className="detail-icon">🗺️</span>
-          <div className="detail-content">
-            <div className="detail-label">Coordenadas</div>
-            <div className="detail-value">
-              {business.latitude && business.longitude ? (
-                <span className="coords-badge">
-                  📍 {parseFloat(business.latitude).toFixed(4)}, {parseFloat(business.longitude).toFixed(4)}
-                </span>
-              ) : (
-                <span className="no-coords">Sin coordenadas</span>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <div className="business-card-actions">
-        <button
-          onClick={() => navigate(`/businesses/edit/${business.id}`)}
-          className="btn btn-edit"
-          title="Editar negocio"
-        >
-          ✏️ Editar
-        </button>
-        <button
-          onClick={() => handleDelete(business.id)}
-          className="btn btn-delete"
-          title="Eliminar negocio"
-        >
-          🗑️ Eliminar
-        </button>
-      </div>
-    </div>
-  );
 
   if (loading) {
     return (
@@ -246,10 +547,7 @@ const BusinessTable = () => {
         <h1>📋 Lista de Negocios</h1>
         
         <div className="business-table-actions">
-          <Link 
-            to="/businesses/new" 
-            className="btn btn-primary"
-          >
+          <Link to="/businesses/new" className="btn btn-primary">
             ➕ Nuevo Negocio
           </Link>
           
@@ -263,7 +561,7 @@ const BusinessTable = () => {
         </div>
       </div>
 
-      {/* Filtros */}
+      {/* FILTROS - Solo en la página completa */}
       <div className="business-table-filters">
         <div className="filter-group">
           <label htmlFor="search">🔍 Buscar:</label>
@@ -307,207 +605,39 @@ const BusinessTable = () => {
         </p>
       </div>
 
-      {/* Manejo de errores */}
-      {error && (
-        <div className="error-message">
-          <span>⚠️</span>
-          <span>{error}</span>
-          <button onClick={loadBusinesses} className="btn-retry">
-            🔄 Reintentar
+      {/* Tabla */}
+      <BusinessTableBase
+        businesses={currentBusinesses}
+        loading={false}
+        error={error}
+        onDelete={handleDelete}
+        showActions={true}
+        compact={false}
+      />
+
+      {/* Paginación */}
+      {totalPages > 1 && (
+        <div className="pagination">
+          <button
+            onClick={() => goToPage(currentPage - 1)}
+            disabled={currentPage === 1}
+            className="btn btn-pagination"
+          >
+            ← Anterior
+          </button>
+          
+          <span className="pagination-info">
+            Página {currentPage} de {totalPages}
+          </span>
+          
+          <button
+            onClick={() => goToPage(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className="btn btn-pagination"
+          >
+            Siguiente →
           </button>
         </div>
-      )}
-
-      {/* Contenido principal */}
-      {!error && (
-        <>
-          {businesses.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon">🏢</div>
-              <h3>No hay negocios registrados</h3>
-              <p>Comienza agregando tu primer negocio al sistema.</p>
-              <Link to="/businesses/new" className="btn btn-primary">
-                ➕ Crear primer negocio
-              </Link>
-            </div>
-          ) : filteredBusinesses.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon">🔍</div>
-              <h3>No se encontraron resultados</h3>
-              <p>Intenta ajustar los filtros de búsqueda.</p>
-              <button 
-                onClick={() => {
-                  setSearchTerm('');
-                  setFilterType('all');
-                  setCurrentPage(1);
-                }}
-                className="btn btn-secondary"
-              >
-                🗑️ Limpiar filtros
-              </button>
-            </div>
-          ) : (
-            <>
-              {/* ✅ TABLA ACTUALIZADA para Desktop */}
-              <div className="table-container">
-                <table className="business-table">
-                  <thead>
-                    <tr>
-                      <th>Nombre</th>
-                      <th>Tipo</th>
-                      <th>Dirección</th>
-                      <th>Ubicación</th>
-                      <th>Contacto</th>
-                      <th>Coordenadas</th>
-                      <th>Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {currentBusinesses.map(business => (
-                      <tr key={business.id}>
-                        {/* Nombre y descripción */}
-                        <td>
-                          <strong>{business.name || 'Sin nombre'}</strong>
-                          {business.description && (
-                            <div className="business-description">
-                              {business.description.substring(0, 100)}
-                              {business.description.length > 100 && '...'}
-                            </div>
-                          )}
-                        </td>
-                        
-                        {/* Tipo de negocio */}
-                        <td>
-                          <span className="business-type-badge">
-                            {business.business_type || 'No especificado'}
-                          </span>
-                        </td>
-                        
-                        {/* Dirección principal */}
-                        <td className="address-cell">
-                          <div className="main-address">
-                            {business.address || 'No especificada'}
-                          </div>
-                        </td>
-                        
-                        {/* ✅ NUEVA COLUMNA: Ubicación (distrito, sector, anexo) */}
-                        <td className="location-cell">
-                          {business.distrito && (
-                            <div className="location-item">
-                              <span className="location-icon">🏛️</span>
-                              <span className="location-text">{business.distrito}</span>
-                            </div>
-                          )}
-                          {business.sector && (
-                            <div className="location-item">
-                              <span className="location-icon">📍</span>
-                              <span className="location-text">{business.sector}</span>
-                            </div>
-                          )}
-                          {business.anexo && (
-                            <div className="location-item">
-                              <span className="location-icon">🏘️</span>
-                              <span className="location-text">{business.anexo}</span>
-                            </div>
-                          )}
-                          {!business.distrito && !business.sector && !business.anexo && (
-                            <span className="no-location">-</span>
-                          )}
-                        </td>
-                        
-                        {/* Contacto (teléfono y email) */}
-                        <td className="contact-cell">
-                          {business.phone && (
-                            <div className="contact-item">
-                              <span className="contact-icon">📞</span>
-                              <a href={`tel:${business.phone}`} className="contact-link">
-                                {business.phone}
-                              </a>
-                            </div>
-                          )}
-                          {business.email && (
-                            <div className="contact-item">
-                              <span className="contact-icon">✉️</span>
-                              <a href={`mailto:${business.email}`} className="contact-link">
-                                {business.email.length > 20 ? business.email.substring(0, 20) + '...' : business.email}
-                              </a>
-                            </div>
-                          )}
-                          {!business.phone && !business.email && (
-                            <span className="no-contact">-</span>
-                          )}
-                        </td>
-                        
-                        {/* Coordenadas */}
-                        <td>
-                          {business.latitude && business.longitude ? (
-                            <span className="coords-badge">
-                              📍 {parseFloat(business.latitude).toFixed(4)}, {parseFloat(business.longitude).toFixed(4)}
-                            </span>
-                          ) : (
-                            <span className="no-coords">Sin coordenadas</span>
-                          )}
-                        </td>
-                        
-                        {/* Acciones */}
-                        <td>
-                          <div className="action-buttons">
-                            <button
-                              onClick={() => navigate(`/businesses/edit/${business.id}`)}
-                              className="btn btn-edit"
-                              title="Editar negocio"
-                            >
-                              ✏️
-                            </button>
-                            <button
-                              onClick={() => handleDelete(business.id)}
-                              className="btn btn-delete"
-                              title="Eliminar negocio"
-                            >
-                              🗑️
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Cards para Móvil */}
-              <div className="business-cards">
-                {currentBusinesses.map(business => (
-                  <BusinessCard key={business.id} business={business} />
-                ))}
-              </div>
-
-              {/* Paginación */}
-              {totalPages > 1 && (
-                <div className="pagination">
-                  <button
-                    onClick={() => goToPage(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    className="btn btn-pagination"
-                  >
-                    ← Anterior
-                  </button>
-                  
-                  <span className="pagination-info">
-                    Página {currentPage} de {totalPages}
-                  </span>
-                  
-                  <button
-                    onClick={() => goToPage(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    className="btn btn-pagination"
-                  >
-                    Siguiente →
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </>
       )}
     </div>
   );

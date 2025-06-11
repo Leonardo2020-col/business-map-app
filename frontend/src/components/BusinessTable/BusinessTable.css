@@ -917,3 +917,580 @@
   margin-top: 4px;
   line-height: 1.3;
 }
+
+/* ============================================================================
+   ESTILOS ADICIONALES PARA LA SECCIÓN DE NEGOCIOS RECIENTES
+   ============================================================================ */
+
+/* Sección de negocios recientes en el dashboard */
+.recent-businesses-section {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  margin-bottom: 2rem;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #f1f5f9;
+}
+
+.section-header h2 {
+  color: #1e293b;
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.view-all-btn {
+  background: none;
+  border: none;
+  color: #667eea;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+}
+
+.view-all-btn:hover {
+  background: #f1f5f9;
+  color: #4c51bf;
+  transform: translateX(3px);
+}
+
+.show-more {
+  margin-top: 1rem;
+  text-align: center;
+  padding-top: 1rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.show-more .btn {
+  background: white;
+  color: #667eea;
+  border: 2px solid #e2e8f0;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.show-more .btn:hover {
+  background: #f8fafc;
+  border-color: #667eea;
+  transform: translateY(-1px);
+}
+
+/* ============================================================================
+   ESTILOS PARA TABLA COMPACTA
+   ============================================================================ */
+
+.business-table-wrapper.compact {
+  font-size: 0.9rem;
+}
+
+.business-table-wrapper.compact .business-table th,
+.business-table-wrapper.compact .business-table td {
+  padding: 0.75rem 0.5rem;
+}
+
+.business-table-wrapper.compact .business-name {
+  font-size: 0.95rem;
+}
+
+.business-table-wrapper.compact .business-description {
+  font-size: 0.8rem;
+  max-height: 2.4em;
+  overflow: hidden;
+}
+
+.business-table-wrapper.compact .business-type-badge {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.6rem;
+}
+
+.business-table-wrapper.compact .location-extras {
+  margin-top: 0.25rem;
+}
+
+.business-table-wrapper.compact .location-tag {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.4rem;
+}
+
+/* ============================================================================
+   ESTILOS MEJORADOS PARA UBICACIÓN
+   ============================================================================ */
+
+.location-info {
+  min-width: 200px;
+}
+
+.location-info .address {
+  color: #374151;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  line-height: 1.3;
+}
+
+.location-extras {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.location-tag {
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  color: #374151;
+  padding: 0.15rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: 1px solid #d1d5db;
+}
+
+.location-tag.distrito {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  color: #1e40af;
+  border-color: #93c5fd;
+}
+
+.location-tag.sector {
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  color: #166534;
+  border-color: #86efac;
+}
+
+.location-tag.anexo {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+  border-color: #fcd34d;
+}
+
+.coordinates {
+  margin-top: 0.25rem;
+}
+
+.coords-badge {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  color: #065f46;
+  padding: 0.15rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid #6ee7b7;
+}
+
+/* ============================================================================
+   ESTILOS MEJORADOS PARA CONTACTO
+   ============================================================================ */
+
+.contact-info {
+  min-width: 150px;
+}
+
+.contact-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.contact-icon {
+  font-size: 0.9rem;
+  opacity: 0.7;
+}
+
+.contact-link {
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.contact-link:hover {
+  color: #4c51bf;
+  text-decoration: underline;
+}
+
+.no-contact {
+  color: #9ca3af;
+  font-style: italic;
+  font-size: 0.85rem;
+}
+
+/* ============================================================================
+   ESTILOS PARA FECHA
+   ============================================================================ */
+
+.date-cell {
+  min-width: 120px;
+}
+
+.date-info .created-date {
+  color: #374151;
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+
+.date-info .updated-date {
+  color: #6b7280;
+  font-size: 0.8rem;
+}
+
+/* ============================================================================
+   ESTILOS MEJORADOS PARA ACCIONES
+   ============================================================================ */
+
+.action-buttons {
+  display: flex;
+  gap: 0.25rem;
+  justify-content: center;
+}
+
+.btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+}
+
+.btn-edit {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+}
+
+.btn-edit:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+}
+
+.btn-map {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+}
+
+.btn-map:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.4);
+}
+
+.btn-delete {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+}
+
+.btn-delete:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(239, 68, 68, 0.4);
+}
+
+/* ============================================================================
+   ESTILOS PARA CARDS MÓVIL COMPACTAS
+   ============================================================================ */
+
+.business-card.compact {
+  padding: 1rem;
+}
+
+.business-card.compact .business-card-header {
+  margin-bottom: 0.75rem;
+}
+
+.business-card.compact .business-card-title {
+  font-size: 1rem;
+}
+
+.business-card.compact .business-card-type {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.6rem;
+}
+
+.business-card.compact .business-card-details {
+  gap: 0.75rem;
+}
+
+.business-card.compact .detail-content {
+  font-size: 0.85rem;
+}
+
+.business-card.compact .detail-label {
+  font-size: 0.75rem;
+}
+
+.business-card.compact .business-card-actions {
+  margin-top: 0.75rem;
+  gap: 0.5rem;
+}
+
+.business-card.compact .business-card-actions .btn {
+  font-size: 0.8rem;
+  padding: 0.4rem 0.8rem;
+}
+
+/* ============================================================================
+   ESTILOS PARA ESTADOS DE CARGA Y ERROR
+   ============================================================================ */
+
+.table-loading {
+  text-align: center;
+  padding: 3rem 1rem;
+}
+
+.table-loading p {
+  margin-top: 1rem;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.table-error {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: #dc2626;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  margin: 1rem 0;
+}
+
+.table-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+}
+
+.table-empty .empty-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.table-empty h3 {
+  color: #374151;
+  margin-bottom: 0.5rem;
+  font-size: 1.2rem;
+}
+
+.table-empty p {
+  color: #6b7280;
+  margin-bottom: 1.5rem;
+}
+
+/* ============================================================================
+   MEJORAS RESPONSIVE
+   ============================================================================ */
+
+@media (max-width: 768px) {
+  .recent-businesses-section {
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .section-header h2 {
+    font-size: 1.3rem;
+  }
+
+  .view-all-btn {
+    align-self: flex-end;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+  }
+
+  .business-table-wrapper.compact .table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .business-table-wrapper.compact .business-table {
+    min-width: 600px;
+  }
+
+  .location-extras {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .btn-sm {
+    width: 100%;
+    min-width: auto;
+    height: auto;
+    padding: 0.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .recent-businesses-section {
+    padding: 0.75rem;
+    border-radius: 8px;
+  }
+
+  .section-header h2 {
+    font-size: 1.1rem;
+  }
+
+  .business-table-wrapper.compact .business-cards {
+    gap: 0.75rem;
+  }
+
+  .business-card.compact {
+    padding: 0.75rem;
+  }
+
+  .location-tag {
+    font-size: 0.7rem;
+    padding: 0.1rem 0.4rem;
+  }
+
+  .coords-badge {
+    font-size: 0.7rem;
+    padding: 0.1rem 0.4rem;
+  }
+
+  .contact-item {
+    font-size: 0.8rem;
+  }
+
+  .show-more .btn {
+    width: 100%;
+    padding: 0.75rem;
+  }
+}
+
+/* ============================================================================
+   ANIMACIONES Y TRANSICIONES
+   ============================================================================ */
+
+.business-row {
+  transition: all 0.2s ease;
+}
+
+.business-row:hover {
+  background: #f8fafc;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.business-card {
+  transition: all 0.2s ease;
+}
+
+.business-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.location-tag,
+.coords-badge {
+  transition: all 0.2s ease;
+}
+
+.location-tag:hover,
+.coords-badge:hover {
+  transform: scale(1.05);
+}
+
+/* ============================================================================
+   UTILIDADES ADICIONALES
+   ============================================================================ */
+
+.text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.text-truncate-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ============================================================================
+   ESTILOS PARA ACCESIBILIDAD
+   ============================================================================ */
+
+.btn:focus-visible {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+.contact-link:focus-visible {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.view-all-btn:focus-visible {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+/* ============================================================================
+   MEJORAS PARA IMPRESIÓN
+   ============================================================================ */
+
+@media print {
+  .recent-businesses-section {
+    box-shadow: none;
+    border: 1px solid #ccc;
+  }
+
+  .view-all-btn,
+  .action-buttons,
+  .business-card-actions {
+    display: none;
+  }
+
+  .business-table-wrapper.compact .business-table {
+    font-size: 0.8rem;
+  }
+
+  .business-row:hover {
+    background: transparent;
+    transform: none;
+    box-shadow: none;
+  }
+}
