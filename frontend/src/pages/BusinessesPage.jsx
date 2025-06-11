@@ -1,6 +1,6 @@
 import React from 'react';
 import BusinessTable from '../components/BusinessTable/BusinessTable';
-import Navbar from '../components/Navbar';
+import Navbar from '../components/Navbar/Navbar';
 
 const BusinessesPage = () => {
   return (
