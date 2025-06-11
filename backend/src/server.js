@@ -50,7 +50,6 @@ app.use((req, res, next) => {
 // IMPORTACIONES SEGURAS
 // ===============================================
 let sequelize, User, Business;
-let authRoutes, businessRoutes, userRoutes, adminUserRoutes;
 let authMiddleware;
 
 try {
@@ -193,32 +192,20 @@ const safeRouteRegistration = (path, routeFile, description) => {
   }
 };
 
-// Registrar rutas de autenticación
+// ORDEN CORRECTO: Registrar rutas SIN middleware primero
+console.log('🛣️ Registrando rutas principales...');
+
+// 1. Rutas de autenticación (sin middleware)
 const authLoaded = safeRouteRegistration('/api/auth', './routes/auth', 'de autenticación');
 
-// Registrar rutas de negocios (con middleware de auth si está disponible)
-if (authMiddleware) {
-  const businessLoaded = safeRouteRegistration('/api/businesses', './routes/businesses', 'de negocios');
-  // Aplicar middleware de auth a las rutas de negocios
-  if (businessLoaded) {
-    app.use('/api/businesses', authMiddleware);
-  }
-} else {
-  safeRouteRegistration('/api/businesses', './routes/businesses', 'de negocios');
-}
+// 2. Rutas de negocios (SIN middleware inicialmente)
+const businessLoaded = safeRouteRegistration('/api/businesses', './routes/businesses', 'de negocios');
 
-// Registrar rutas de usuarios
-if (authMiddleware) {
-  const userLoaded = safeRouteRegistration('/api/users', './routes/users', 'de usuarios');
-  if (userLoaded) {
-    app.use('/api/users', authMiddleware);
-  }
-} else {
-  safeRouteRegistration('/api/users', './routes/users', 'de usuarios');
-}
+// 3. Rutas de usuarios (SIN middleware inicialmente) 
+const userLoaded = safeRouteRegistration('/api/users', './routes/users', 'de usuarios');
 
-// Registrar rutas de administración
-safeRouteRegistration('/api/admin/users', './routes/admin/users', 'de administración');
+// 4. Rutas de administración (con su propio middleware interno)
+const adminLoaded = safeRouteRegistration('/api/admin/users', './routes/admin/users', 'de administración');
 
 // ===============================================
 // CONFIGURAR ASOCIACIONES DE MODELOS

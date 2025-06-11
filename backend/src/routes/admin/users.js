@@ -1,5 +1,5 @@
 const express = require('express');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs'); // ← CAMBIO: bcrypt por bcryptjs
 const { Op } = require('sequelize');
 const User = require('../../models/User');
 const { auth, adminAuth } = require('../../middleware/auth');
