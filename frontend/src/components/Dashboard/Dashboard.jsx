@@ -71,33 +71,8 @@ const Dashboard = () => {
         {/* Header */}
         <div className="dashboard-header">
           <div className="welcome-section">
-            <h1>¡Bienvenido, {user?.full_name || user?.username}!</h1>
+            <h1>¡Bienvenido, Administrador del Sistema!</h1>
             <p>Panel de control de Business Map</p>
-            <div className="user-info">
-              <span className="user-role">
-                {user?.role === 'admin' ? '👑 Administrador' : '👤 Usuario'}
-              </span>
-              <span className="user-email">{user?.email}</span>
-            </div>
-          </div>
-          
-          <div className="quick-actions">
-            <Link to="/business/new" className="btn btn-primary">
-              <span className="icon">➕</span>
-              Agregar Negocio
-            </Link>
-            
-            {isAdmin() && (
-              <Link to="/admin/users" className="btn btn-secondary">
-                <span className="icon">👥</span>
-                Gestionar Usuarios
-              </Link>
-            )}
-            
-            <button onClick={handleLogout} className="btn btn-outline">
-              <span className="icon">🚪</span>
-              Cerrar Sesión
-            </button>
           </div>
         </div>
 
