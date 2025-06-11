@@ -9,7 +9,7 @@ const {
   initializeDatabase, 
   closeConnection, 
   environment 
-} = require('./src/config/database');
+} = require('./config/database');
 
 // Importar modelos
 const User = require('./src/models/User');
