@@ -5,7 +5,7 @@ import LoadingSpinner from '../LoadingSpinner';
 import './BusinessTable.css';
 
 // ============================================================================
-// COMPONENTE BASE DE TABLA - Reutilizable para Dashboard y página completa
+// COMPONENTE BASE DE TABLA - Simplificado
 // ============================================================================
 const BusinessTableBase = ({ 
   businesses = [], 
@@ -26,14 +26,6 @@ const BusinessTableBase = ({
     }
     
     onDelete(business.id);
-  };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('es-PE', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    });
   };
 
   // Limitar filas si se especifica maxRows
@@ -75,16 +67,15 @@ const BusinessTableBase = ({
             <tr>
               <th>Negocio</th>
               <th>Tipo</th>
-              <th>Ubicación</th>
+              <th>Dirección</th>
               <th>Contacto</th>
-              {!compact && <th>Fecha</th>}
               {showActions && <th>Acciones</th>}
             </tr>
           </thead>
           <tbody>
             {displayBusinesses.map(business => (
               <tr key={business.id} className="business-row">
-                {/* Nombre y descripción */}
+                {/* Negocio */}
                 <td className="business-name-cell">
                   <div className="business-info">
                     <div className="business-name">{business.name || 'Sin nombre'}</div>
@@ -99,42 +90,32 @@ const BusinessTableBase = ({
                   </div>
                 </td>
                 
-                {/* Tipo de negocio */}
+                {/* Tipo */}
                 <td className="business-type-cell">
                   <span className="business-type-badge">
                     {business.business_type || 'No especificado'}
                   </span>
                 </td>
                 
-                {/* Ubicación completa */}
-                <td className="location-cell">
-                  <div className="location-info">
-                    <div className="address">
-                      {business.address?.length > 40 
-                        ? `${business.address.substring(0, 40)}...`
-                        : business.address || 'No especificada'
-                      }
+                {/* Dirección */}
+                <td className="address-cell">
+                  <div className="address-info">
+                    <div className="main-address">
+                      {business.address || 'No especificada'}
                     </div>
                     
-                    {/* Ubicación adicional */}
-                    <div className="location-extras">
+                    {/* Información adicional de ubicación */}
+                    <div className="address-details">
                       {business.distrito && (
-                        <span className="location-tag distrito">🏛️ {business.distrito}</span>
+                        <span className="address-tag distrito">{business.distrito}</span>
                       )}
                       {business.sector && (
-                        <span className="location-tag sector">📍 {business.sector}</span>
+                        <span className="address-tag sector">{business.sector}</span>
                       )}
                       {business.anexo && (
-                        <span className="location-tag anexo">🏘️ {business.anexo}</span>
+                        <span className="address-tag anexo">{business.anexo}</span>
                       )}
                     </div>
-                    
-                    {/* Coordenadas */}
-                    {business.latitude && business.longitude && (
-                      <div className="coordinates">
-                        <span className="coords-badge">📍 Coordenadas disponibles</span>
-                      </div>
-                    )}
                   </div>
                 </td>
                 
@@ -153,8 +134,8 @@ const BusinessTableBase = ({
                       <div className="contact-item">
                         <span className="contact-icon">✉️</span>
                         <a href={`mailto:${business.email}`} className="contact-link">
-                          {business.email.length > 20 
-                            ? `${business.email.substring(0, 20)}...`
+                          {business.email.length > 25 
+                            ? `${business.email.substring(0, 25)}...`
                             : business.email
                           }
                         </a>
@@ -166,23 +147,7 @@ const BusinessTableBase = ({
                   </div>
                 </td>
                 
-                {/* Fecha (solo en modo no compacto) */}
-                {!compact && (
-                  <td className="date-cell">
-                    <div className="date-info">
-                      <div className="created-date">
-                        {formatDate(business.created_at)}
-                      </div>
-                      {business.updated_at !== business.created_at && (
-                        <div className="updated-date">
-                          Actualizado: {formatDate(business.updated_at)}
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                )}
-                
-                {/* Acciones */}
+                {/* Acciones - Solo Editar y Eliminar */}
                 {showActions && (
                   <td className="actions-cell">
                     <div className="action-buttons">
@@ -193,16 +158,6 @@ const BusinessTableBase = ({
                       >
                         ✏️
                       </button>
-                      
-                      {business.latitude && business.longitude && (
-                        <button
-                          onClick={() => navigate(`/map?business=${business.id}`)}
-                          className="btn btn-sm btn-map"
-                          title="Ver en mapa"
-                        >
-                          🗺️
-                        </button>
-                      )}
                       
                       <button
                         onClick={() => handleDelete(business)}
@@ -220,7 +175,7 @@ const BusinessTableBase = ({
         </table>
       </div>
 
-      {/* Cards para móvil - Simplificado para dashboard */}
+      {/* Cards para móvil */}
       <div className="business-cards">
         {displayBusinesses.map(business => (
           <BusinessCard 
@@ -237,7 +192,7 @@ const BusinessTableBase = ({
 };
 
 // ============================================================================
-// COMPONENTE CARD PARA MÓVIL
+// COMPONENTE CARD PARA MÓVIL - Simplificado
 // ============================================================================
 const BusinessCard = ({ business, onDelete, showActions = true, compact = false }) => {
   const navigate = useNavigate();
@@ -270,15 +225,15 @@ const BusinessCard = ({ business, onDelete, showActions = true, compact = false 
             
             {/* Ubicación adicional */}
             {(business.distrito || business.sector || business.anexo) && (
-              <div className="location-extras">
+              <div className="address-details">
                 {business.distrito && (
-                  <span className="location-tag">🏛️ {business.distrito}</span>
+                  <span className="address-tag distrito">{business.distrito}</span>
                 )}
                 {business.sector && (
-                  <span className="location-tag">📍 {business.sector}</span>
+                  <span className="address-tag sector">{business.sector}</span>
                 )}
                 {business.anexo && (
-                  <span className="location-tag">🏘️ {business.anexo}</span>
+                  <span className="address-tag anexo">{business.anexo}</span>
                 )}
               </div>
             )}
@@ -303,21 +258,9 @@ const BusinessCard = ({ business, onDelete, showActions = true, compact = false 
             </div>
           </div>
         )}
-        
-        {/* Coordenadas */}
-        {business.latitude && business.longitude && (
-          <div className="business-card-detail">
-            <span className="detail-icon">🗺️</span>
-            <div className="detail-content">
-              <div className="detail-label">Ubicación</div>
-              <div className="detail-value">
-                <span className="coords-badge">📍 Coordenadas disponibles</span>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
       
+      {/* Acciones - Solo Editar y Eliminar */}
       {showActions && (
         <div className="business-card-actions">
           <button
@@ -327,16 +270,6 @@ const BusinessCard = ({ business, onDelete, showActions = true, compact = false 
           >
             ✏️ Editar
           </button>
-          
-          {business.latitude && business.longitude && (
-            <button
-              onClick={() => navigate(`/map?business=${business.id}`)}
-              className="btn btn-map"
-              title="Ver en mapa"
-            >
-              🗺️ Mapa
-            </button>
-          )}
           
           <button
             onClick={() => onDelete(business)}
@@ -561,7 +494,7 @@ const BusinessTable = () => {
         </div>
       </div>
 
-      {/* FILTROS - Solo en la página completa */}
+      {/* FILTROS */}
       <div className="business-table-filters">
         <div className="filter-group">
           <label htmlFor="search">🔍 Buscar:</label>
