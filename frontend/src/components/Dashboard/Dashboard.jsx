@@ -1,251 +1,403 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { businessAPI } from '../../services/api';
+import Navbar from '../Navbar';
+import './Dashborad.css';
 
 const Dashboard = () => {
-  const { user } = useAuth();
-  const [debugInfo, setDebugInfo] = useState('Iniciando Dashboard...');
+  const { user, logout, isAdmin } = useAuth();
+  const [businesses, setBusinesses] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    console.log('🚀 Dashboard useEffect ejecutado');
-    setDebugInfo('Dashboard montado correctamente');
-    
-    // Test simple sin API calls
-    setTimeout(() => {
-      setDebugInfo('Dashboard completamente cargado - SIN API calls');
-    }, 1000);
+    console.log('🚀 Dashboard: Iniciando carga de datos...');
+    loadDashboardData();
   }, []);
 
-  console.log('🔍 Dashboard renderizando...');
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      console.log('📊 Cargando datos del dashboard...');
+
+      // Cargar negocios y estadísticas en paralelo
+      const promises = [
+        businessAPI.getAll({ limit: 10 }),
+        businessAPI.getStats()
+      ];
+
+      const [businessResponse, statsResponse] = await Promise.all(promises);
+
+      if (businessResponse.success) {
+        setBusinesses(businessResponse.data || []);
+        console.log(`✅ ${businessResponse.data?.length || 0} negocios cargados`);
+      }
+
+      if (statsResponse.success) {
+        setStats(statsResponse.data);
+        console.log('📊 Estadísticas cargadas:', statsResponse.data);
+      }
+
+    } catch (error) {
+      console.error('❌ Error cargando dashboard:', error);
+      setError('Error cargando datos del dashboard');
+    } finally {
+      setLoading(false);
+      console.log('✅ Dashboard: Carga completada');
+    }
+  };
+
+  const handleLogout = () => {
+    if (window.confirm('¿Estás seguro que quieres cerrar sesión?')) {
+      logout();
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="dashboard-container">
+        <Navbar />
+        <div className="dashboard-content">
+          <div className="loading-state">
+            <div className="loading-spinner"></div>
+            <p>Cargando dashboard...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      backgroundColor: '#f0f0f0',
-      padding: '2rem',
-      fontFamily: 'Arial, sans-serif'
-    }}>
-      <div style={{
-        maxWidth: '800px',
-        margin: '0 auto',
-        backgroundColor: 'white',
-        padding: '2rem',
-        borderRadius: '8px',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
-      }}>
-        <h1 style={{ color: '#333', marginBottom: '1rem' }}>
-          🎉 ¡Dashboard Funcionando!
-        </h1>
-        
-        <div style={{ marginBottom: '2rem' }}>
-          <h2 style={{ color: '#666' }}>Información del Usuario:</h2>
-          <div style={{ 
-            backgroundColor: '#f9f9f9', 
-            padding: '1rem', 
-            borderRadius: '4px',
-            fontFamily: 'monospace'
-          }}>
-            <p><strong>Username:</strong> {user?.username || 'No disponible'}</p>
-            <p><strong>Email:</strong> {user?.email || 'No disponible'}</p>
-            <p><strong>Rol:</strong> {user?.role || 'No disponible'}</p>
-            <p><strong>Activo:</strong> {user?.is_active ? 'Sí' : 'No'}</p>
+    <div className="dashboard-container">
+      <Navbar />
+      
+      <div className="dashboard-content">
+        {/* Header */}
+        <div className="dashboard-header">
+          <div className="welcome-section">
+            <h1>¡Bienvenido, {user?.full_name || user?.username}!</h1>
+            <p>Panel de control de Business Map</p>
+            <div className="user-info">
+              <span className="user-role">
+                {user?.role === 'admin' ? '👑 Administrador' : '👤 Usuario'}
+              </span>
+              <span className="user-email">{user?.email}</span>
+            </div>
           </div>
-        </div>
-
-        <div style={{ marginBottom: '2rem' }}>
-          <h2 style={{ color: '#666' }}>Estado de Debug:</h2>
-          <div style={{ 
-            backgroundColor: '#e8f5e8', 
-            padding: '1rem', 
-            borderRadius: '4px',
-            border: '1px solid #4caf50'
-          }}>
-            <p style={{ margin: 0, color: '#2e7d32' }}>
-              ✅ {debugInfo}
-            </p>
-          </div>
-        </div>
-
-        <div style={{ marginBottom: '2rem' }}>
-          <h2 style={{ color: '#666' }}>Información Técnica:</h2>
-          <div style={{ 
-            backgroundColor: '#f0f8ff', 
-            padding: '1rem', 
-            borderRadius: '4px',
-            fontFamily: 'monospace',
-            fontSize: '0.9rem'
-          }}>
-            <p><strong>Timestamp:</strong> {new Date().toISOString()}</p>
-            <p><strong>User Agent:</strong> {navigator.userAgent.substring(0, 100)}...</p>
-            <p><strong>Window Location:</strong> {window.location.href}</p>
-            <p><strong>Environment:</strong> {import.meta.env.MODE}</p>
-          </div>
-        </div>
-
-        <div style={{ marginBottom: '2rem' }}>
-          <h2 style={{ color: '#666' }}>Acciones de Prueba:</h2>
-          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-            <button 
-              onClick={() => {
-                console.log('✅ Botón 1 clickeado');
-                alert('✅ JavaScript funciona correctamente!');
-              }}
-              style={{
-                backgroundColor: '#4caf50',
-                color: 'white',
-                border: 'none',
-                padding: '0.75rem 1.5rem',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '1rem'
-              }}
-            >
-              🧪 Test JavaScript
-            </button>
-
-            <button 
-              onClick={() => {
-                console.log('✅ Botón 2 clickeado');
-                setDebugInfo(`Button clicked at ${new Date().toLocaleTimeString()}`);
-              }}
-              style={{
-                backgroundColor: '#2196f3',
-                color: 'white',
-                border: 'none',
-                padding: '0.75rem 1.5rem',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '1rem'
-              }}
-            >
-              🔄 Update State
-            </button>
-
-            <button 
-              onClick={() => {
-                console.log('✅ Botón 3 clickeado');
-                window.location.reload();
-              }}
-              style={{
-                backgroundColor: '#ff9800',
-                color: 'white',
-                border: 'none',
-                padding: '0.75rem 1.5rem',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '1rem'
-              }}
-            >
-              🔃 Reload Page
-            </button>
-
-            <button 
-              onClick={() => {
-                console.log('✅ Botón 4 clickeado - Probando console logs');
-                console.log('🔍 Debug info:', {
-                  user,
-                  debugInfo,
-                  timestamp: new Date(),
-                  location: window.location.href
-                });
-                alert('Revisa la consola para ver los logs!');
-              }}
-              style={{
-                backgroundColor: '#9c27b0',
-                color: 'white',
-                border: 'none',
-                padding: '0.75rem 1.5rem',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '1rem'
-              }}
-            >
-              📝 Console Log Test
+          
+          <div className="quick-actions">
+            <Link to="/business/new" className="btn btn-primary">
+              <span className="icon">➕</span>
+              Agregar Negocio
+            </Link>
+            
+            {isAdmin() && (
+              <Link to="/admin/users" className="btn btn-secondary">
+                <span className="icon">👥</span>
+                Gestionar Usuarios
+              </Link>
+            )}
+            
+            <button onClick={handleLogout} className="btn btn-outline">
+              <span className="icon">🚪</span>
+              Cerrar Sesión
             </button>
           </div>
         </div>
 
-        <div>
-          <h2 style={{ color: '#666' }}>Navegación de Prueba:</h2>
-          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-            <a 
-              href="/login"
-              style={{
-                backgroundColor: '#f44336',
-                color: 'white',
-                padding: '0.75rem 1.5rem',
-                borderRadius: '4px',
-                textDecoration: 'none',
-                fontSize: '1rem'
-              }}
-            >
-              🚪 Ir a Login
-            </a>
+        {/* Error Message */}
+        {error && (
+          <div className="error-message">
+            <div className="error-content">
+              <span className="error-icon">⚠️</span>
+              <span className="error-text">{error}</span>
+              <button onClick={loadDashboardData} className="btn btn-outline">
+                🔄 Reintentar
+              </button>
+            </div>
+          </div>
+        )}
 
-            <a 
-              href="/api/health"
-              target="_blank"
-              style={{
-                backgroundColor: '#607d8b',
-                color: 'white',
-                padding: '0.75rem 1.5rem',
-                borderRadius: '4px',
-                textDecoration: 'none',
-                fontSize: '1rem'
-              }}
-            >
-              💊 Test API Health
-            </a>
+        {/* Stats Cards */}
+        {stats && (
+          <div className="stats-grid">
+            <div className="stat-card">
+              <div className="stat-icon">🏢</div>
+              <div className="stat-content">
+                <h3>{stats.total || 0}</h3>
+                <p>Total Negocios</p>
+              </div>
+              <div className="stat-trend">
+                {stats.recent > 0 && (
+                  <span className="trend-positive">+{stats.recent} esta semana</span>
+                )}
+              </div>
+            </div>
+            
+            <div className="stat-card">
+              <div className="stat-icon">📍</div>
+              <div className="stat-content">
+                <h3>{stats.withCoordinates || 0}</h3>
+                <p>Con Ubicación</p>
+              </div>
+              <div className="stat-trend">
+                <span className="trend-neutral">
+                  {stats.withoutCoordinates || 0} sin ubicar
+                </span>
+              </div>
+            </div>
+            
+            <div className="stat-card">
+              <div className="stat-icon">📊</div>
+              <div className="stat-content">
+                <h3>{stats.byType?.length || 0}</h3>
+                <p>Tipos de Negocio</p>
+              </div>
+              <div className="stat-trend">
+                <span className="trend-neutral">Categorías activas</span>
+              </div>
+            </div>
+            
+            <div className="stat-card">
+              <div className="stat-icon">🆕</div>
+              <div className="stat-content">
+                <h3>{stats.recent || 0}</h3>
+                <p>Recientes (7 días)</p>
+              </div>
+              <div className="stat-trend">
+                {stats.recent > 0 ? (
+                  <span className="trend-positive">↗️ Creciendo</span>
+                ) : (
+                  <span className="trend-neutral">Sin cambios</span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
+        {/* Recent Businesses */}
+        <div className="dashboard-section">
+          <div className="section-header">
+            <h2>Negocios Recientes</h2>
+            <Link to="/businesses" className="view-all-link">
+              Ver todos →
+            </Link>
+          </div>
+          
+          {businesses.length > 0 ? (
+            <div className="businesses-grid">
+              {businesses.slice(0, 6).map((business) => (
+                <div key={business.id} className="business-card">
+                  <div className="business-header">
+                    <h3>{business.name}</h3>
+                    <span className="business-type">{business.business_type}</span>
+                  </div>
+                  
+                  <div className="business-details">
+                    <p className="business-address">
+                      <span className="icon">📍</span>
+                      {business.address}
+                    </p>
+                    
+                    {business.phone && (
+                      <p className="business-phone">
+                        <span className="icon">📞</span>
+                        {business.phone}
+                      </p>
+                    )}
+                    
+                    {business.email && (
+                      <p className="business-email">
+                        <span className="icon">✉️</span>
+                        {business.email}
+                      </p>
+                    )}
+                    
+                    {business.website && (
+                      <p className="business-website">
+                        <span className="icon">🌐</span>
+                        <a href={business.website} target="_blank" rel="noopener noreferrer">
+                          Sitio web
+                        </a>
+                      </p>
+                    )}
+                  </div>
+                  
+                  <div className="business-actions">
+                    <Link 
+                      to={`/business/edit/${business.id}`} 
+                      className="btn btn-sm btn-outline"
+                    >
+                      ✏️ Editar
+                    </Link>
+                    
+                    {business.latitude && business.longitude && (
+                      <button 
+                        className="btn btn-sm btn-primary"
+                        onClick={() => {
+                          const url = `https://www.google.com/maps?q=${business.latitude},${business.longitude}`;
+                          window.open(url, '_blank');
+                        }}
+                      >
+                        🗺️ Ver en Mapa
+                      </button>
+                    )}
+                  </div>
+                  
+                  <div className="business-meta">
+                    <span className="created-date">
+                      Creado: {new Date(business.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">
+              <div className="empty-icon">🏢</div>
+              <h3>No hay negocios aún</h3>
+              <p>Comienza agregando tu primer negocio al directorio</p>
+              <Link to="/business/new" className="btn btn-primary">
+                ➕ Agregar Primer Negocio
+              </Link>
+            </div>
+          )}
+        </div>
+
+        {/* Business Types Overview */}
+        {stats?.byType && stats.byType.length > 0 && (
+          <div className="dashboard-section">
+            <div className="section-header">
+              <h2>Distribución por Tipo</h2>
+            </div>
+            <div className="types-grid">
+              {stats.byType.slice(0, 8).map((type, index) => (
+                <div key={index} className="type-card">
+                  <div className="type-icon">
+                    {getTypeIcon(type.business_type)}
+                  </div>
+                  <h4>{type.business_type}</h4>
+                  <p>{type.count} negocio{type.count !== 1 ? 's' : ''}</p>
+                </div>
+              ))}
+              
+              {stats.byType.length > 8 && (
+                <div className="type-card more-types">
+                  <div className="type-icon">➕</div>
+                  <h4>Más tipos</h4>
+                  <p>{stats.byType.length - 8} adicionales</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Quick Links */}
+        <div className="dashboard-section">
+          <div className="section-header">
+            <h2>Accesos Rápidos</h2>
+          </div>
+          <div className="quick-links-grid">
+            <Link to="/business/new" className="quick-link-card">
+              <span className="icon">➕</span>
+              <h3>Nuevo Negocio</h3>
+              <p>Agregar un negocio al directorio</p>
+            </Link>
+            
+            <Link to="/businesses" className="quick-link-card">
+              <span className="icon">🔍</span>
+              <h3>Buscar Negocios</h3>
+              <p>Explorar el directorio completo</p>
+            </Link>
+            
+            <Link to="/profile" className="quick-link-card">
+              <span className="icon">👤</span>
+              <h3>Mi Perfil</h3>
+              <p>Actualizar información personal</p>
+            </Link>
+            
+            {isAdmin() && (
+              <Link to="/admin/users" className="quick-link-card">
+                <span className="icon">⚙️</span>
+                <h3>Administración</h3>
+                <p>Gestionar usuarios y configuración</p>
+              </Link>
+            )}
+            
             <button 
               onClick={() => {
-                console.log('✅ Probando API fetch...');
-                fetch('/api/health')
-                  .then(response => response.json())
-                  .then(data => {
-                    console.log('✅ API Response:', data);
-                    alert('API funciona! Ver consola para detalles.');
-                  })
-                  .catch(error => {
-                    console.error('❌ API Error:', error);
-                    alert('Error en API: ' + error.message);
-                  });
+                window.open('https://www.google.com/maps', '_blank');
               }}
-              style={{
-                backgroundColor: '#795548',
-                color: 'white',
-                border: 'none',
-                padding: '0.75rem 1.5rem',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '1rem'
-              }}
+              className="quick-link-card clickable"
             >
-              🔧 Test API Direct
+              <span className="icon">🗺️</span>
+              <h3>Google Maps</h3>
+              <p>Abrir Google Maps en nueva pestaña</p>
             </button>
+            
+            <Link to="/api/health" className="quick-link-card" target="_blank">
+              <span className="icon">💊</span>
+              <h3>Estado del Sistema</h3>
+              <p>Verificar salud de la API</p>
+            </Link>
           </div>
         </div>
 
-        <div style={{ 
-          marginTop: '2rem', 
-          padding: '1rem', 
-          backgroundColor: '#fff3cd',
-          border: '1px solid #ffc107',
-          borderRadius: '4px'
-        }}>
-          <h3 style={{ color: '#856404', margin: '0 0 1rem 0' }}>
-            📋 Instrucciones de Debug:
-          </h3>
-          <ol style={{ color: '#856404', paddingLeft: '1.5rem' }}>
-            <li>Si ves esta pantalla, React está funcionando ✅</li>
-            <li>Si los botones funcionan, JavaScript está OK ✅</li>
-            <li>Revisa la consola del navegador (F12) para logs detallados</li>
-            <li>Prueba el botón "Test API Direct" para verificar conectividad</li>
-            <li>Si esta pantalla se queda "cargando", hay un problema en otro componente</li>
-          </ol>
+        {/* Footer Info */}
+        <div className="dashboard-footer">
+          <div className="footer-content">
+            <div className="system-info">
+              <h4>🏗️ Business Map v2.1.0</h4>
+              <p>Sistema de gestión de directorio de negocios</p>
+            </div>
+            
+            <div className="user-session">
+              <h4>👤 Sesión Actual</h4>
+              <p><strong>Usuario:</strong> {user?.username}</p>
+              <p><strong>Rol:</strong> {user?.role}</p>
+              <p><strong>Último acceso:</strong> {
+                user?.last_login 
+                  ? new Date(user.last_login).toLocaleString()
+                  : 'Primera vez'
+              }</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
+};
+
+// Helper function para iconos de tipos de negocio
+const getTypeIcon = (type) => {
+  const icons = {
+    'restaurante': '🍽️',
+    'tienda': '🛍️',
+    'farmacia': '💊',
+    'banco': '🏦',
+    'hospital': '🏥',
+    'escuela': '🏫',
+    'hotel': '🏨',
+    'gasolinera': '⛽',
+    'supermercado': '🛒',
+    'cafe': '☕',
+    'gym': '💪',
+    'peluqueria': '💇',
+    'taller': '🔧',
+    'libreria': '📚',
+    'panaderia': '🥖'
+  };
+  
+  const lowerType = type.toLowerCase();
+  for (const [key, icon] of Object.entries(icons)) {
+    if (lowerType.includes(key)) {
+      return icon;
+    }
+  }
+  return '🏢'; // Default icon
 };
 
 export default Dashboard;
