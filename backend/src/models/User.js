@@ -1,6 +1,31 @@
-const { DataTypes, Op } = require('sequelize');  // ✅ IMPORTAR Op CORRECTAMENTE
-const sequelize = require('../config/database');
+const { DataTypes, Op } = require('sequelize');
 
+// ✅ IMPORTACIÓN SEGURA DE LA BASE DE DATOS
+let sequelize;
+try {
+  sequelize = require('../config/database');
+  console.log('✅ database.js importado correctamente en User.js');
+} catch (error) {
+  console.error('❌ Error importando database.js en User.js:', error.message);
+  throw new Error('No se pudo importar la configuración de base de datos');
+}
+
+// ✅ VERIFICAR QUE SEQUELIZE ES VÁLIDO
+if (!sequelize) {
+  throw new Error('sequelize es null o undefined');
+}
+
+if (typeof sequelize.define !== 'function') {
+  console.error('❌ sequelize.define no es una función');
+  console.error('💡 sequelize recibido:', typeof sequelize, sequelize);
+  throw new Error('sequelize.define no es una función - verificar database.js');
+}
+
+console.log('✅ Sequelize válido, procediendo a definir modelo User');
+
+// ===============================================
+// DEFINICIÓN DEL MODELO USER
+// ===============================================
 const User = sequelize.define('User', {
   id: {
     type: DataTypes.INTEGER,
@@ -37,7 +62,7 @@ const User = sequelize.define('User', {
       }
     }
   },
-  // ✅ NUEVOS CAMPOS PARA GESTIÓN DE USUARIOS
+  // ✅ CAMPOS PARA GESTIÓN DE USUARIOS
   email: {
     type: DataTypes.STRING(255),
     allowNull: true,
@@ -107,7 +132,7 @@ const User = sequelize.define('User', {
       name: 'idx_users_email',
       where: {
         email: {
-          [Op.ne]: null  // ✅ AHORA Op ESTÁ CORRECTAMENTE IMPORTADO
+          [Op.ne]: null
         }
       }
     },
@@ -120,7 +145,6 @@ const User = sequelize.define('User', {
       name: 'idx_users_active'
     }
   ],
-  // ✅ HOOKS PARA GESTIÓN AUTOMÁTICA
   hooks: {
     beforeCreate: (user) => {
       // Limpiar datos antes de crear
@@ -128,7 +152,7 @@ const User = sequelize.define('User', {
       if (user.email) user.email = user.email.toLowerCase().trim();
       if (user.full_name) user.full_name = user.full_name.trim();
       
-      // Convertir email vacío a null
+      // Convertir strings vacíos a null
       if (user.email === '') user.email = null;
       if (user.full_name === '') user.full_name = null;
     },
@@ -138,29 +162,17 @@ const User = sequelize.define('User', {
       if (user.email) user.email = user.email.toLowerCase().trim();
       if (user.full_name) user.full_name = user.full_name.trim();
       
-      // Convertir email vacío a null
+      // Convertir strings vacíos a null
       if (user.email === '') user.email = null;
       if (user.full_name === '') user.full_name = null;
       
       // Actualizar timestamp
       user.updated_at = new Date();
-    },
-    beforeFind: (options) => {
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('🔍 User.beforeFind:', options.where);
-      }
-    },
-    afterFind: (result, options) => {
-      if (process.env.NODE_ENV !== 'production') {
-        if (result) {
-          console.log('✅ User.afterFind:', Array.isArray(result) ? `${result.length} users found` : 'User found');
-        } else {
-          console.log('❌ User.afterFind: No user found');
-        }
-      }
     }
   }
 });
+
+console.log('✅ Modelo User definido correctamente');
 
 // ===============================================
 // MÉTODOS DE INSTANCIA
@@ -190,7 +202,7 @@ User.prototype.isActiveUser = function() {
 };
 
 /**
- * Obtener nombre para mostrar (full_name o username)
+ * Obtener nombre para mostrar
  */
 User.prototype.getDisplayName = function() {
   return this.full_name || this.username;
@@ -212,7 +224,8 @@ User.prototype.updateLastLogin = async function() {
  * Buscar usuario por username
  */
 User.findByUsername = async function(username) {
-  console.log(`🔍 Buscando usuario: ${username}`);
+  if (!username) return null;
+  
   try {
     const user = await this.findOne({ 
       where: { 
@@ -220,15 +233,9 @@ User.findByUsername = async function(username) {
       }
     });
     
-    if (user) {
-      console.log(`✅ Usuario encontrado: ${user.username} (${user.role})`);
-    } else {
-      console.log(`❌ Usuario no encontrado: ${username}`);
-    }
-    
     return user;
   } catch (error) {
-    console.error(`❌ Error buscando usuario ${username}:`, error);
+    console.error(`❌ Error buscando usuario ${username}:`, error.message);
     throw error;
   }
 };
@@ -248,13 +255,13 @@ User.findByEmail = async function(email) {
     
     return user;
   } catch (error) {
-    console.error(`❌ Error buscando usuario por email ${email}:`, error);
+    console.error(`❌ Error buscando usuario por email:`, error.message);
     throw error;
   }
 };
 
 /**
- * Listar todos los usuarios (para debugging)
+ * Listar todos los usuarios (debugging)
  */
 User.listAll = async function() {
   try {
@@ -263,14 +270,10 @@ User.listAll = async function() {
       order: [['created_at', 'DESC']]
     });
     
-    console.log('📋 Usuarios en base de datos:');
-    users.forEach(user => {
-      console.log(`  - ID: ${user.id}, Username: ${user.username}, Role: ${user.role}, Active: ${user.is_active}`);
-    });
-    
+    console.log(`📋 ${users.length} usuarios encontrados en la base de datos`);
     return users;
   } catch (error) {
-    console.error('❌ Error listando usuarios:', error);
+    console.error('❌ Error listando usuarios:', error.message);
     throw error;
   }
 };
@@ -291,13 +294,13 @@ User.countByRole = async function() {
       total: adminCount + userCount
     };
   } catch (error) {
-    console.error('❌ Error contando usuarios por rol:', error);
+    console.error('❌ Error contando usuarios por rol:', error.message);
     throw error;
   }
 };
 
 /**
- * Buscar usuarios con paginación y filtros
+ * Buscar usuarios con filtros
  */
 User.findWithFilters = async function(options = {}) {
   const {
@@ -314,7 +317,7 @@ User.findWithFilters = async function(options = {}) {
   
   // Filtro de búsqueda
   if (search) {
-    where[Op.or] = [  // ✅ USAR Op CORRECTAMENTE
+    where[Op.or] = [
       { username: { [Op.iLike]: `%${search}%` } },
       { full_name: { [Op.iLike]: `%${search}%` } },
       { email: { [Op.iLike]: `%${search}%` } }
@@ -350,17 +353,17 @@ User.findWithFilters = async function(options = {}) {
       }
     };
   } catch (error) {
-    console.error('❌ Error en búsqueda con filtros:', error);
+    console.error('❌ Error en búsqueda con filtros:', error.message);
     throw error;
   }
 };
 
 /**
- * Verificar si existe otro usuario con el mismo username o email
+ * Verificar unicidad de username/email
  */
 User.checkUnique = async function(username, email, excludeId = null) {
   const where = {
-    [Op.or]: [  // ✅ USAR Op CORRECTAMENTE
+    [Op.or]: [
       { username: username.toLowerCase().trim() }
     ]
   };
@@ -370,21 +373,27 @@ User.checkUnique = async function(username, email, excludeId = null) {
   }
   
   if (excludeId) {
-    where.id = { [Op.ne]: excludeId };  // ✅ USAR Op CORRECTAMENTE
+    where.id = { [Op.ne]: excludeId };
   }
   
-  const existingUser = await this.findOne({ where });
-  
-  if (existingUser) {
-    if (existingUser.username === username.toLowerCase().trim()) {
-      throw new Error('El nombre de usuario ya existe');
+  try {
+    const existingUser = await this.findOne({ where });
+    
+    if (existingUser) {
+      if (existingUser.username === username.toLowerCase().trim()) {
+        throw new Error('El nombre de usuario ya existe');
+      }
+      if (existingUser.email === email?.toLowerCase().trim()) {
+        throw new Error('El email ya está registrado');
+      }
     }
-    if (existingUser.email === email?.toLowerCase().trim()) {
-      throw new Error('El email ya está registrado');
-    }
+    
+    return true;
+  } catch (error) {
+    throw error;
   }
-  
-  return true;
 };
+
+console.log('✅ Métodos del modelo User configurados correctamente');
 
 module.exports = User;
