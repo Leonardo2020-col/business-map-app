@@ -1,7 +1,7 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { GoogleMap, Marker } from '@react-google-maps/api';
 
-// Estilo del mapa para el selector (NO fullscreen)
+// Estilo del mapa para el selector
 const mapContainerStyle = {
   width: '100%',
   height: '400px',
@@ -15,6 +15,23 @@ const defaultCenter = {
   lng: -77.0428
 };
 
+const mapOptions = {
+  zoomControl: true,
+  mapTypeControl: false,
+  scaleControl: false,
+  streetViewControl: false,
+  rotateControl: false,
+  fullscreenControl: false,
+  gestureHandling: 'greedy',
+  styles: [
+    {
+      featureType: 'poi',
+      elementType: 'labels',
+      stylers: [{ visibility: 'on' }]
+    }
+  ]
+};
+
 const MapLocationPicker = ({ 
   onLocationSelect, 
   initialLocation = null,
@@ -22,6 +39,34 @@ const MapLocationPicker = ({
 }) => {
   const [selectedLocation, setSelectedLocation] = useState(initialLocation);
   const [isSelecting, setIsSelecting] = useState(!initialLocation);
+  const [mapError, setMapError] = useState(null);
+  const [isMapLoaded, setIsMapLoaded] = useState(false);
+
+  // Verificar que Google Maps esté disponible
+  useEffect(() => {
+    const checkGoogleMaps = () => {
+      if (window.google && window.google.maps) {
+        setIsMapLoaded(true);
+        setMapError(null);
+      } else {
+        setMapError('Google Maps no está disponible');
+      }
+    };
+
+    // Verificar inmediatamente
+    checkGoogleMaps();
+
+    // Verificar periódicamente si no está cargado
+    const interval = setInterval(() => {
+      if (!isMapLoaded) {
+        checkGoogleMaps();
+      } else {
+        clearInterval(interval);
+      }
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [isMapLoaded]);
 
   // Manejar click en el mapa para seleccionar ubicación
   const handleMapClick = useCallback((event) => {
@@ -48,60 +93,93 @@ const MapLocationPicker = ({
     setIsSelecting(true);
   };
 
+  // Obtener ubicación actual del usuario
+  const handleGetCurrentLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const newLocation = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
+          setSelectedLocation(newLocation);
+          setIsSelecting(false);
+          console.log('📍 Ubicación actual obtenida:', newLocation);
+        },
+        (error) => {
+          console.error('Error obteniendo ubicación:', error);
+          alert('No se pudo obtener tu ubicación actual. Verifica los permisos del navegador.');
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 60000
+        }
+      );
+    } else {
+      alert('Geolocalización no soportada en este navegador');
+    }
+  };
+
+  // Si hay error del mapa
+  if (mapError) {
+    return (
+      <div style={{
+        background: 'white',
+        borderRadius: '8px',
+        padding: '20px',
+        textAlign: 'center',
+        border: '2px solid #dc3545'
+      }}>
+        <div style={{ fontSize: '3rem', marginBottom: '15px' }}>⚠️</div>
+        <h3 style={{ color: '#dc3545', margin: '0 0 10px 0' }}>Error en el mapa</h3>
+        <p style={{ color: '#666', margin: '0 0 20px 0' }}>{mapError}</p>
+        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+          <button onClick={() => window.location.reload()} className="btn btn-primary">
+            🔄 Recargar página
+          </button>
+          {onClose && (
+            <button onClick={onClose} className="btn btn-secondary">
+              ❌ Cerrar
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Si no está cargado el mapa
+  if (!isMapLoaded) {
+    return (
+      <div style={{
+        background: 'white',
+        borderRadius: '8px',
+        padding: '20px'
+      }}>
+        <div style={{
+          height: '400px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#f8f9fa',
+          borderRadius: '8px',
+          border: '2px solid #e0e0e0'
+        }}>
+          <div style={{ fontSize: '3rem', marginBottom: '15px' }}>🗺️</div>
+          <h3 style={{ margin: '0 0 10px 0', color: '#333' }}>Cargando Google Maps...</h3>
+          <p style={{ margin: 0, color: '#666' }}>Esto puede tardar unos segundos</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{
       background: 'white',
-      borderRadius: '12px',
-      padding: '20px',
-      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
-      maxWidth: '600px',
-      margin: '0 auto'
+      borderRadius: '8px',
+      padding: '0' // Sin padding para el contenedor principal
     }}>
-      {/* Header del selector */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '20px',
-        paddingBottom: '15px',
-        borderBottom: '2px solid #f0f0f0'
-      }}>
-        <h3 style={{ margin: 0, color: '#333' }}>
-          📍 Seleccionar Ubicación
-        </h3>
-        {onClose && (
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '20px',
-              cursor: 'pointer',
-              color: '#666',
-              padding: '5px'
-            }}
-          >
-            ❌
-          </button>
-        )}
-      </div>
-
-      {/* Instrucciones */}
-      <div style={{
-        background: '#e7f3ff',
-        padding: '12px',
-        borderRadius: '8px',
-        marginBottom: '15px',
-        border: '1px solid #b3d9ff'
-      }}>
-        <p style={{ margin: 0, fontSize: '14px', color: '#0c5aa6' }}>
-          💡 <strong>Instrucciones:</strong> {isSelecting ? 
-            'Haz clic en el mapa para seleccionar la ubicación del negocio' :
-            'Ubicación seleccionada. Puedes hacer clic en otro lugar para cambiarla'
-          }
-        </p>
-      </div>
-
       {/* Información de la ubicación seleccionada */}
       {selectedLocation && (
         <div style={{
