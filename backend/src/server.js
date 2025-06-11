@@ -145,32 +145,104 @@ const setupModels = async () => {
 };
 
 // ===============================================
-// ARCHIVOS ESTÁTICOS (SOLO EN PRODUCCIÓN)
+// ARCHIVOS ESTÁTICOS Y SPA FALLBACK
 // ===============================================
 if (isProduction) {
   console.log('📁 Configurando archivos estáticos...');
   
-  const staticPath = path.join(__dirname, '../frontend/dist');
+  // La ruta correcta basada en tu estructura
+  const staticPath = path.join(__dirname, '../../frontend/dist');
+  const fs = require('fs');
   
-  if (require('fs').existsSync(staticPath)) {
+  console.log(`🔍 Buscando frontend en: ${staticPath}`);
+  
+  if (fs.existsSync(staticPath)) {
+    console.log('✅ Frontend encontrado');
+    
+    // Servir archivos estáticos
     app.use(express.static(staticPath));
     console.log('✅ Archivos estáticos configurados');
     
-    // SPA fallback (DEBE IR AL FINAL)
+    // Verificar que index.html existe
+    const indexPath = path.join(staticPath, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      console.log('✅ index.html encontrado');
+    } else {
+      console.warn('⚠️ index.html NO encontrado');
+    }
+    
+    // SPA fallback - DEBE IR DESPUÉS DE LAS RUTAS DE API
     app.get('*', (req, res) => {
-      // No capturar rutas de API
+      // Si es una ruta de API que no existe, devolver 404 JSON
       if (req.path.startsWith('/api/')) {
         return res.status(404).json({
           success: false,
-          message: 'Endpoint no encontrado',
-          error: 'NOT_FOUND'
+          message: 'Endpoint de API no encontrado',
+          error: 'NOT_FOUND',
+          path: req.path
         });
       }
       
-      res.sendFile(path.join(staticPath, 'index.html'));
+      // Para cualquier otra ruta, servir index.html (SPA)
+      const indexPath = path.join(staticPath, 'index.html');
+      if (fs.existsSync(indexPath)) {
+        console.log(`📄 Sirviendo SPA para: ${req.path}`);
+        res.sendFile(indexPath);
+      } else {
+        res.status(404).send('Frontend no disponible - index.html no encontrado');
+      }
     });
   } else {
-    console.warn('⚠️ Archivos estáticos no encontrados');
+    console.warn(`⚠️ Directorio de archivos estáticos no encontrado: ${staticPath}`);
+    
+    // Intentar rutas alternativas
+    const alternativePaths = [
+      path.join(__dirname, '../frontend/dist'),
+      path.join(__dirname, './dist'),
+      path.join(__dirname, '../dist')
+    ];
+    
+    let foundPath = null;
+    for (const altPath of alternativePaths) {
+      console.log(`🔍 Intentando: ${altPath}`);
+      if (fs.existsSync(altPath)) {
+        foundPath = altPath;
+        console.log(`✅ Frontend encontrado en: ${altPath}`);
+        break;
+      }
+    }
+    
+    if (foundPath) {
+      app.use(express.static(foundPath));
+      app.get('*', (req, res) => {
+        if (req.path.startsWith('/api/')) {
+          return res.status(404).json({
+            success: false,
+            message: 'Endpoint de API no encontrado',
+            error: 'NOT_FOUND'
+          });
+        }
+        res.sendFile(path.join(foundPath, 'index.html'));
+      });
+    } else {
+      // Fallback si no hay archivos estáticos
+      app.get('*', (req, res) => {
+        if (req.path.startsWith('/api/')) {
+          return res.status(404).json({
+            success: false,
+            message: 'Endpoint de API no encontrado',
+            error: 'NOT_FOUND'
+          });
+        }
+        
+        res.status(503).json({
+          success: false,
+          message: 'Frontend no disponible',
+          error: 'FRONTEND_NOT_DEPLOYED',
+          searchedPaths: [staticPath, ...alternativePaths]
+        });
+      });
+    }
   }
 } else {
   // Página de desarrollo
@@ -201,15 +273,8 @@ app.use((err, req, res, next) => {
   });
 });
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: 'Ruta no encontrada',
-    error: 'NOT_FOUND',
-    path: req.path
-  });
-});
+// 404 handler SOLO para rutas de API (el SPA fallback maneja el resto)
+// NO INCLUIR 404 GENERAL AQUÍ porque interfiere con el SPA fallback
 
 // ===============================================
 // INICIALIZAR SERVIDOR
