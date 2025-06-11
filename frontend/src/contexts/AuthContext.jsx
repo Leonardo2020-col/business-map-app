@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import { authAPI, systemAPI, getAPIConfig } from '../services/api';
 
 export const AuthContext = createContext();
@@ -19,134 +19,109 @@ export const AuthProvider = ({ children }) => {
   const [initialized, setInitialized] = useState(false);
   const [apiStatus, setApiStatus] = useState('checking');
 
-  // Verificar API al inicializar
-  useEffect(() => {
-    const checkAPI = async () => {
-      try {
-        console.log('🔍 Verificando conexión con API...');
-        console.log('🔧 API Config:', getAPIConfig());
-        
-        const response = await systemAPI.health();
-        console.log('✅ API disponible:', response.data);
-        setApiStatus('available');
-        setInitialized(true);
-      } catch (error) {
-        console.error('❌ API no disponible:', error);
-        setApiStatus('unavailable');
-        setInitialized(true);
-        
-        // En desarrollo, mostrar más información
-        if (import.meta.env.DEV) {
-          console.error('🔧 Debug info:', {
-            config: getAPIConfig(),
-            error: error.message,
-            errorDetails: error
-          });
-        }
-      }
-    };
-
-    checkAPI();
-  }, []);
-
-  // Verificar token almacenado al cargar
-  useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        const storedToken = localStorage.getItem('token');
-        const storedUser = localStorage.getItem('user');
-
-        console.log('🔍 Verificando sesión almacenada...');
-        console.log('Token stored:', !!storedToken);
-        console.log('User stored:', !!storedUser);
-
-        if (storedToken && storedUser) {
-          // Verificar que el token siga siendo válido
-          try {
-            setToken(storedToken);
-            
-            // Intentar verificar el token con el servidor
-            const response = await authAPI.verify();
-            
-            if (response.data.success) {
-              const userData = JSON.parse(storedUser);
-              setUser(userData);
-              console.log('✅ Sesión válida restaurada:', userData.username);
-            } else {
-              throw new Error('Token inválido');
-            }
-          } catch (error) {
-            console.warn('⚠️ Token almacenado inválido, limpiando sesión');
-            clearSession();
-          }
-        } else {
-          console.log('ℹ️ No hay sesión almacenada');
-        }
-      } catch (error) {
-        console.error('❌ Error inicializando auth:', error);
-        clearSession();
-      } finally {
-        setLoading(false);
-        setInitialized(true);
-      }
-    };
-
-    // Solo inicializar si la API está disponible o después de un tiempo
-    if (apiStatus === 'available') {
-      initializeAuth();
-    } else if (apiStatus === 'unavailable') {
-      // En caso de que la API no esté disponible, verificar sesión local
-      const storedToken = localStorage.getItem('token');
-      const storedUser = localStorage.getItem('user');
-      
-      if (storedToken && storedUser) {
-        try {
-          const userData = JSON.parse(storedUser);
-          setToken(storedToken);
-          setUser(userData);
-          console.log('⚠️ Usando sesión local (API no disponible):', userData.username);
-        } catch (error) {
-          console.error('❌ Error parsing stored user data:', error);
-          clearSession();
-        }
-      }
-      setLoading(false);
-      setInitialized(true);
-    }
-  }, [apiStatus]);
-
-  const clearSession = () => {
+  // Función para limpiar sesión (memoizada para evitar re-renders)
+  const clearSession = useCallback(() => {
     setUser(null);
     setToken(null);
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     console.log('🧹 Sesión limpiada');
-  };
+  }, []);
 
-  const login = async (authToken, userData) => {
+  // Inicialización una sola vez al montar el componente
+  useEffect(() => {
+    let isMounted = true;
+
+    const initializeAuth = async () => {
+      try {
+        console.log('🔍 Inicializando autenticación...');
+
+        // 1. Verificar sesión almacenada PRIMERO (sin hacer peticiones)
+        const storedToken = localStorage.getItem('token');
+        const storedUser = localStorage.getItem('user');
+
+        if (storedToken && storedUser) {
+          try {
+            const userData = JSON.parse(storedUser);
+            
+            // Establecer estado local inmediatamente
+            if (isMounted) {
+              setToken(storedToken);
+              setUser(userData);
+              console.log('✅ Sesión local restaurada:', userData.username);
+            }
+
+            // 2. Verificar con el servidor en segundo plano (sin bloquear UI)
+            try {
+              const response = await authAPI.verify();
+              if (!response.data.success && isMounted) {
+                console.warn('⚠️ Token inválido en servidor, limpiando sesión');
+                clearSession();
+              }
+            } catch (verifyError) {
+              console.warn('⚠️ Error verificando token:', verifyError.message);
+              // No limpiar sesión aquí - puede ser problema temporal de red
+            }
+
+          } catch (parseError) {
+            console.error('❌ Error parsing user data:', parseError);
+            if (isMounted) {
+              clearSession();
+            }
+          }
+        } else {
+          console.log('ℹ️ No hay sesión almacenada');
+        }
+
+        // 3. Verificar API en segundo plano
+        try {
+          const healthResponse = await systemAPI.health();
+          if (isMounted) {
+            setApiStatus('available');
+            console.log('✅ API disponible');
+          }
+        } catch (apiError) {
+          if (isMounted) {
+            setApiStatus('unavailable');
+            console.warn('⚠️ API no disponible:', apiError.message);
+          }
+        }
+
+      } catch (error) {
+        console.error('❌ Error inicializando auth:', error);
+        if (isMounted) {
+          clearSession();
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+          setInitialized(true);
+        }
+      }
+    };
+
+    initializeAuth();
+
+    // Cleanup para evitar memory leaks
+    return () => {
+      isMounted = false;
+    };
+  }, []); // ¡IMPORTANTE! Solo ejecutar una vez
+
+  // Función de login (memoizada)
+  const login = useCallback(async (authToken, userData) => {
     try {
-      console.log('🔐 Procesando login en contexto...');
-      console.log('Token received:', !!authToken);
-      console.log('User data received:', {
-        id: userData?.id,
-        username: userData?.username,
-        role: userData?.role
-      });
+      console.log('🔐 Procesando login...');
 
-      if (!authToken) {
-        throw new Error('Token de autenticación requerido');
+      if (!authToken || !userData) {
+        throw new Error('Token y datos de usuario requeridos');
       }
 
-      if (!userData) {
-        throw new Error('Datos de usuario requeridos');
-      }
-
-      // Validar estructura mínima del usuario
       if (!userData.id || !userData.username) {
         throw new Error('Datos de usuario incompletos');
       }
 
-      // Guardar en estado
+      // Actualizar estado
       setToken(authToken);
       setUser(userData);
 
@@ -154,74 +129,77 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('token', authToken);
       localStorage.setItem('user', JSON.stringify(userData));
 
-      console.log('✅ Login exitoso en contexto:', {
-        userId: userData.id,
-        username: userData.username,
-        role: userData.role
-      });
-
+      console.log('✅ Login exitoso:', userData.username);
       return { success: true };
+
     } catch (error) {
-      console.error('❌ Error en login context:', error);
+      console.error('❌ Error en login:', error);
       clearSession();
       throw error;
     }
-  };
+  }, [clearSession]);
 
-  const logout = () => {
+  // Función de logout (memoizada)
+  const logout = useCallback(() => {
     console.log('🚪 Cerrando sesión...');
     clearSession();
     
-    // Redirigir al login
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login';
-    }
-  };
+    // Redirigir después de un pequeño delay para evitar problemas de estado
+    setTimeout(() => {
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
+    }, 100);
+  }, [clearSession]);
 
-  const updateUser = (updatedUserData) => {
-    console.log('👤 Actualizando datos de usuario:', updatedUserData);
-    
+  // Función para actualizar usuario (memoizada)
+  const updateUser = useCallback((updatedUserData) => {
+    if (!user) return;
+
+    console.log('👤 Actualizando datos de usuario');
     const newUserData = { ...user, ...updatedUserData };
     setUser(newUserData);
     localStorage.setItem('user', JSON.stringify(newUserData));
-  };
+  }, [user]);
 
-  const refreshToken = async () => {
+  // Verificar autenticación (memoizada)
+  const isAuthenticated = useCallback(() => {
+    return !!(token && user && user.id);
+  }, [token, user]);
+
+  // Verificar rol admin (memoizada)
+  const isAdmin = useCallback(() => {
+    return user?.role === 'admin';
+  }, [user]);
+
+  // Verificar rol específico (memoizada)
+  const hasRole = useCallback((role) => {
+    return user?.role === role;
+  }, [user]);
+
+  // Refresh token (memoizada)
+  const refreshToken = useCallback(async () => {
     try {
       console.log('🔄 Renovando token...');
-      
       const response = await authAPI.verify();
       
       if (response.data.success) {
-        console.log('✅ Token renovado exitosamente');
+        console.log('✅ Token renovado');
         return true;
       } else {
-        throw new Error('No se pudo renovar el token');
+        throw new Error('Token inválido');
       }
     } catch (error) {
       console.error('❌ Error renovando token:', error);
       logout();
       return false;
     }
-  };
+  }, [logout]);
 
-  // Verificar si el usuario está autenticado
-  const isAuthenticated = () => {
-    return !!(token && user);
-  };
+  // Debug info (solo en desarrollo)
+  const getDebugInfo = useCallback(() => {
+    if (!import.meta.env.DEV) return null;
 
-  // Verificar si el usuario es administrador
-  const isAdmin = () => {
-    return user?.role === 'admin';
-  };
-
-  // Verificar si el usuario tiene un rol específico
-  const hasRole = (role) => {
-    return user?.role === role;
-  };
-
-  // Obtener información de debug
-  const getDebugInfo = () => {
     return {
       isAuthenticated: isAuthenticated(),
       user: user ? {
@@ -232,15 +210,18 @@ export const AuthProvider = ({ children }) => {
       } : null,
       hasToken: !!token,
       apiStatus,
+      initialized,
+      loading,
       apiConfig: getAPIConfig(),
       localStorage: {
         hasToken: !!localStorage.getItem('token'),
         hasUser: !!localStorage.getItem('user')
       }
     };
-  };
+  }, [isAuthenticated, user, token, apiStatus, initialized, loading]);
 
-  const contextValue = {
+  // Valor del contexto (memoizado para evitar re-renders innecesarios)
+  const contextValue = React.useMemo(() => ({
     // Estado
     user,
     token,
@@ -261,16 +242,34 @@ export const AuthProvider = ({ children }) => {
     
     // Debug (solo en desarrollo)
     ...(import.meta.env.DEV && { getDebugInfo, clearSession })
-  };
+  }), [
+    user, 
+    token, 
+    loading, 
+    initialized, 
+    apiStatus,
+    login,
+    logout,
+    updateUser,
+    refreshToken,
+    isAuthenticated,
+    isAdmin,
+    hasRole,
+    getDebugInfo,
+    clearSession
+  ]);
 
-  // Mostrar loading mientras se inicializa
+  // Mostrar loading solo al inicio
   if (loading && !initialized) {
     return (
       <div className="auth-loading">
         <div className="loading-spinner">
-          <p>Inicializando sesión...</p>
+          <p>Inicializando aplicación...</p>
           {import.meta.env.DEV && (
-            <p><small>API Status: {apiStatus}</small></p>
+            <div>
+              <p><small>API Status: {apiStatus}</small></p>
+              <p><small>Initialized: {initialized ? 'Yes' : 'No'}</small></p>
+            </div>
           )}
         </div>
       </div>
