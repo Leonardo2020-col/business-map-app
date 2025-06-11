@@ -12,17 +12,17 @@ const {
 } = require('./config/database');
 
 // Importar modelos
-const User = require('./src/models/User');
-const Business = require('./src/models/Business');
+const User = require('./models/User');
+const Business = require('./models/Business');
 
 // Importar rutas
-const authRoutes = require('./src/routes/auth');
-const businessRoutes = require('./src/routes/businesses');
-const userRoutes = require('./src/routes/users');
-const adminUserRoutes = require('./src/routes/admin/users');
+const authRoutes = require('./routes/auth');
+const businessRoutes = require('./routes/businesses');
+const userRoutes = require('./routes/users');
+const adminUserRoutes = require('./routes/admin/users');
 
 // Importar middleware
-const { auth } = require('./src/middleware/auth');
+const { auth } = require('./middleware/auth');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
