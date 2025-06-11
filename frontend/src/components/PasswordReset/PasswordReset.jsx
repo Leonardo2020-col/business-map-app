@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import Navbar from '../Navbar/Navbar'; // ✅ Agregar Navbar
 import './PasswordReset.css';
 
 const PasswordReset = () => {
@@ -15,14 +16,15 @@ const PasswordReset = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+  // ✅ Usar configuración de API consistente
+  const API_URL = import.meta.env.PROD ? '/api' : 'http://localhost:5000/api';
 
-  // Verificar si el usuario es admin
-  React.useEffect(() => {
-    if (!user || user.role !== 'admin') {
-      navigate('/dashboard');
-    }
-  }, [user, navigate]);
+  // ✅ ELIMINAR la verificación que causa problemas - ahora se maneja en las rutas
+  // React.useEffect(() => {
+  //   if (!user || user.role !== 'admin') {
+  //     navigate('/dashboard');
+  //   }
+  // }, [user, navigate]);
 
   // Validar formulario
   const validateForm = () => {
@@ -158,145 +160,148 @@ const PasswordReset = () => {
   };
 
   return (
-    <div className="password-reset-container">
-      <div className="password-reset-card">
-        {/* Header */}
-        <div className="reset-header">
-          <h2>🔐 Gestión de Contraseñas</h2>
-          <p>Panel administrativo para resetear contraseñas de usuarios</p>
-        </div>
-
-        {/* Alerta de seguridad */}
-        <div className="security-alert">
-          <span className="alert-icon">⚠️</span>
-          <span>Esta acción es irreversible y quedará registrada en el sistema</span>
-        </div>
-
-        {/* Formulario */}
-        <div className="reset-form">
-          {/* Campo de usuario */}
-          <div className="form-group">
-            <label htmlFor="username">
-              <span className="label-icon">👤</span>
-              Nombre de Usuario
-            </label>
-            <div className="input-with-action">
-              <input
-                type="text"
-                id="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Ingrese el nombre de usuario"
-                disabled={loading}
-              />
-              <button
-                type="button"
-                onClick={searchUser}
-                className="btn-search"
-                disabled={loading || !username.trim()}
-              >
-                🔍 Buscar
-              </button>
-            </div>
+    <>
+      <Navbar /> {/* ✅ Agregar Navbar */}
+      <div className="password-reset-container">
+        <div className="password-reset-card">
+          {/* Header */}
+          <div className="reset-header">
+            <h2>🔐 Gestión de Contraseñas</h2>
+            <p>Panel administrativo para resetear contraseñas de usuarios</p>
           </div>
 
-          {/* Campo de nueva contraseña */}
-          <div className="form-group">
-            <label htmlFor="newPassword">
-              <span className="label-icon">🔑</span>
-              Nueva Contraseña
-            </label>
-            <div className="password-input">
+          {/* Alerta de seguridad */}
+          <div className="security-alert">
+            <span className="alert-icon">⚠️</span>
+            <span>Esta acción es irreversible y quedará registrada en el sistema</span>
+          </div>
+
+          {/* Formulario */}
+          <div className="reset-form">
+            {/* Campo de usuario */}
+            <div className="form-group">
+              <label htmlFor="username">
+                <span className="label-icon">👤</span>
+                Nombre de Usuario
+              </label>
+              <div className="input-with-action">
+                <input
+                  type="text"
+                  id="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Ingrese el nombre de usuario"
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  onClick={searchUser}
+                  className="btn-search"
+                  disabled={loading || !username.trim()}
+                >
+                  🔍 Buscar
+                </button>
+              </div>
+            </div>
+
+            {/* Campo de nueva contraseña */}
+            <div className="form-group">
+              <label htmlFor="newPassword">
+                <span className="label-icon">🔑</span>
+                Nueva Contraseña
+              </label>
+              <div className="password-input">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  id="newPassword"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Mínimo 6 caracteres"
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="toggle-password"
+                >
+                  {showPassword ? '👁️' : '👁️‍🗨️'}
+                </button>
+              </div>
+            </div>
+
+            {/* Campo de confirmar contraseña */}
+            <div className="form-group">
+              <label htmlFor="confirmPassword">
+                <span className="label-icon">🔑</span>
+                Confirmar Contraseña
+              </label>
               <input
                 type={showPassword ? "text" : "password"}
-                id="newPassword"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Mínimo 6 caracteres"
+                id="confirmPassword"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Repita la nueva contraseña"
                 disabled={loading}
               />
+            </div>
+
+            {/* Resultado */}
+            {results && (
+              <div className={`result-message ${results.type}`}>
+                <span className="result-icon">
+                  {results.type === 'success' && '✅'}
+                  {results.type === 'error' && '❌'}
+                  {results.type === 'warning' && '⚠️'}
+                  {results.type === 'info' && 'ℹ️'}
+                </span>
+                <span>{results.message}</span>
+              </div>
+            )}
+
+            {/* Botones de acción */}
+            <div className="form-actions">
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="toggle-password"
+                onClick={() => navigate('/dashboard')}
+                className="btn btn-secondary"
+                disabled={loading}
               >
-                {showPassword ? '👁️' : '👁️‍🗨️'}
+                ← Volver
+              </button>
+              <button
+                type="button"
+                onClick={resetPassword}
+                className="btn btn-primary"
+                disabled={loading || !username || !newPassword || !confirmPassword}
+              >
+                {loading ? (
+                  <>
+                    <span className="loading-spinner">⏳</span>
+                    Procesando...
+                  </>
+                ) : (
+                  <>
+                    🔄 Resetear Contraseña
+                  </>
+                )}
               </button>
             </div>
           </div>
 
-          {/* Campo de confirmar contraseña */}
-          <div className="form-group">
-            <label htmlFor="confirmPassword">
-              <span className="label-icon">🔑</span>
-              Confirmar Contraseña
-            </label>
-            <input
-              type={showPassword ? "text" : "password"}
-              id="confirmPassword"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Repita la nueva contraseña"
-              disabled={loading}
-            />
+          {/* Información adicional */}
+          <div className="info-section">
+            <h4>📋 Instrucciones de uso:</h4>
+            <ul>
+              <li>Ingrese el nombre de usuario exacto</li>
+              <li>Use el botón "Buscar" para verificar que el usuario existe</li>
+              <li>Ingrese una contraseña segura de al menos 6 caracteres</li>
+              <li>Confirme la contraseña para evitar errores</li>
+              <li>El usuario deberá usar la nueva contraseña en su próximo inicio de sesión</li>
+            </ul>
           </div>
-
-          {/* Resultado */}
-          {results && (
-            <div className={`result-message ${results.type}`}>
-              <span className="result-icon">
-                {results.type === 'success' && '✅'}
-                {results.type === 'error' && '❌'}
-                {results.type === 'warning' && '⚠️'}
-                {results.type === 'info' && 'ℹ️'}
-              </span>
-              <span>{results.message}</span>
-            </div>
-          )}
-
-          {/* Botones de acción */}
-          <div className="form-actions">
-            <button
-              type="button"
-              onClick={() => navigate('/dashboard')}
-              className="btn btn-secondary"
-              disabled={loading}
-            >
-              ← Volver
-            </button>
-            <button
-              type="button"
-              onClick={resetPassword}
-              className="btn btn-primary"
-              disabled={loading || !username || !newPassword || !confirmPassword}
-            >
-              {loading ? (
-                <>
-                  <span className="loading-spinner">⏳</span>
-                  Procesando...
-                </>
-              ) : (
-                <>
-                  🔄 Resetear Contraseña
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* Información adicional */}
-        <div className="info-section">
-          <h4>📋 Instrucciones de uso:</h4>
-          <ul>
-            <li>Ingrese el nombre de usuario exacto</li>
-            <li>Use el botón "Buscar" para verificar que el usuario existe</li>
-            <li>Ingrese una contraseña segura de al menos 6 caracteres</li>
-            <li>Confirme la contraseña para evitar errores</li>
-            <li>El usuario deberá usar la nueva contraseña en su próximo inicio de sesión</li>
-          </ul>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

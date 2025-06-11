@@ -20,7 +20,7 @@ const Navbar = () => {
   
   // Verificar si estamos en una ruta de admin
   const isAdminPath = () => {
-    return location.pathname.startsWith('/admin') || location.pathname === '/forgot-password';
+    return location.pathname.startsWith('/admin');
   };
 
   // Cerrar menú móvil cuando cambie la ruta
@@ -136,7 +136,7 @@ const Navbar = () => {
                     </Link>
                     
                     <Link
-                      to="/forgot-password"
+                      to="/admin/password-reset"
                       className="admin-dropdown-item"
                       onClick={handleLinkClick}
                     >

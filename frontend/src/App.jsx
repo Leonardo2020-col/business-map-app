@@ -32,12 +32,13 @@ function App() {
               } 
             />
             
+            {/* Gestión de contraseñas - Solo para admins autenticados */}
             <Route 
-              path="/forgot-password" 
+              path="/admin/password-reset" 
               element={
-                <PublicRoute>
+                <ProtectedRoute requireAdmin={true}>
                   <PasswordReset />
-                </PublicRoute>
+                </ProtectedRoute>
               } 
             />
             
