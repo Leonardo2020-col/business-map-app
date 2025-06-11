@@ -100,22 +100,42 @@ const BusinessTableBase = ({
                 {/* Dirección */}
                 <td className="address-cell">
                   <div className="address-info">
-                    <div className="main-address">
-                      {business.address || 'No especificada'}
-                    </div>
+                    {/* Dirección principal */}
+                    {business.address && (
+                      <div className="address-item">
+                        <span className="address-label">📍 Dirección:</span>
+                        <span className="address-value">{business.address}</span>
+                      </div>
+                    )}
                     
-                    {/* Información adicional de ubicación */}
-                    <div className="address-details">
-                      {business.distrito && (
-                        <span className="address-tag distrito">{business.distrito}</span>
-                      )}
-                      {business.sector && (
-                        <span className="address-tag sector">{business.sector}</span>
-                      )}
-                      {business.anexo && (
-                        <span className="address-tag anexo">{business.anexo}</span>
-                      )}
-                    </div>
+                    {/* Distrito */}
+                    {business.distrito && (
+                      <div className="address-item">
+                        <span className="address-label">🏛️ Distrito:</span>
+                        <span className="address-value">{business.distrito}</span>
+                      </div>
+                    )}
+                    
+                    {/* Sector */}
+                    {business.sector && (
+                      <div className="address-item">
+                        <span className="address-label">📍 Sector:</span>
+                        <span className="address-value">{business.sector}</span>
+                      </div>
+                    )}
+                    
+                    {/* Anexo */}
+                    {business.anexo && (
+                      <div className="address-item">
+                        <span className="address-label">🏘️ Anexo:</span>
+                        <span className="address-value">{business.anexo}</span>
+                      </div>
+                    )}
+                    
+                    {/* Si no hay ninguna dirección */}
+                    {!business.address && !business.distrito && !business.sector && !business.anexo && (
+                      <span className="no-address">No especificada</span>
+                    )}
                   </div>
                 </td>
                 
@@ -221,22 +241,44 @@ const BusinessCard = ({ business, onDelete, showActions = true, compact = false 
           <span className="detail-icon">📍</span>
           <div className="detail-content">
             <div className="detail-label">Dirección</div>
-            <div className="detail-value">{business.address || 'No especificada'}</div>
-            
-            {/* Ubicación adicional */}
-            {(business.distrito || business.sector || business.anexo) && (
-              <div className="address-details">
-                {business.distrito && (
-                  <span className="address-tag distrito">{business.distrito}</span>
-                )}
-                {business.sector && (
-                  <span className="address-tag sector">{business.sector}</span>
-                )}
-                {business.anexo && (
-                  <span className="address-tag anexo">{business.anexo}</span>
-                )}
-              </div>
-            )}
+            <div className="detail-value">
+              {/* Dirección principal */}
+              {business.address && (
+                <div className="address-item">
+                  <span className="address-label">📍 Dirección:</span>
+                  <span className="address-value">{business.address}</span>
+                </div>
+              )}
+              
+              {/* Distrito */}
+              {business.distrito && (
+                <div className="address-item">
+                  <span className="address-label">🏛️ Distrito:</span>
+                  <span className="address-value">{business.distrito}</span>
+                </div>
+              )}
+              
+              {/* Sector */}
+              {business.sector && (
+                <div className="address-item">
+                  <span className="address-label">📍 Sector:</span>
+                  <span className="address-value">{business.sector}</span>
+                </div>
+              )}
+              
+              {/* Anexo */}
+              {business.anexo && (
+                <div className="address-item">
+                  <span className="address-label">🏘️ Anexo:</span>
+                  <span className="address-value">{business.anexo}</span>
+                </div>
+              )}
+              
+              {/* Si no hay ninguna dirección */}
+              {!business.address && !business.distrito && !business.sector && !business.anexo && (
+                <span className="no-address">No especificada</span>
+              )}
+            </div>
           </div>
         </div>
         
@@ -385,13 +427,20 @@ const BusinessTable = () => {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
+  const [filterDistrito, setFilterDistrito] = useState('all');
+  const [filterSector, setFilterSector] = useState('all');
+  const [filterAnexo, setFilterAnexo] = useState('all');
   const [businessTypes, setBusinessTypes] = useState([]);
+  const [distritos, setDistritos] = useState([]);
+  const [sectores, setSectores] = useState([]);
+  const [anexos, setAnexos] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
 
   useEffect(() => {
     loadBusinesses();
     loadBusinessTypes();
+    loadLocationFilters();
   }, []);
 
   const loadBusinesses = async () => {
@@ -428,6 +477,41 @@ const BusinessTable = () => {
     }
   };
 
+  const loadLocationFilters = async () => {
+    try {
+      // Cargar opciones únicas de distrito, sector y anexo desde los negocios existentes
+      const response = await businessAPI.getAll();
+      const businessesData = response.data?.data || response.data || [];
+      
+      if (Array.isArray(businessesData)) {
+        // Extraer valores únicos para cada filtro
+        const uniqueDistritos = [...new Set(businessesData
+          .map(b => b.distrito)
+          .filter(d => d && d.trim() !== '')
+        )].sort();
+        
+        const uniqueSectores = [...new Set(businessesData
+          .map(b => b.sector)
+          .filter(s => s && s.trim() !== '')
+        )].sort();
+        
+        const uniqueAnexos = [...new Set(businessesData
+          .map(b => b.anexo)
+          .filter(a => a && a.trim() !== '')
+        )].sort();
+        
+        setDistritos(uniqueDistritos);
+        setSectores(uniqueSectores);
+        setAnexos(uniqueAnexos);
+      }
+    } catch (err) {
+      console.error('Error cargando filtros de ubicación:', err);
+      setDistritos([]);
+      setSectores([]);
+      setAnexos([]);
+    }
+  };
+
   const handleDelete = async (businessId) => {
     try {
       await businessAPI.delete(businessId);
@@ -451,8 +535,11 @@ const BusinessTable = () => {
       (business.anexo && business.anexo.toLowerCase().includes(searchTerm.toLowerCase()));
     
     const matchesType = filterType === 'all' || business.business_type === filterType;
+    const matchesDistrito = filterDistrito === 'all' || business.distrito === filterDistrito;
+    const matchesSector = filterSector === 'all' || business.sector === filterSector;
+    const matchesAnexo = filterAnexo === 'all' || business.anexo === filterAnexo;
     
-    return matchesSearch && matchesType;
+    return matchesSearch && matchesType && matchesDistrito && matchesSector && matchesAnexo;
   });
 
   // Paginación
@@ -528,14 +615,117 @@ const BusinessTable = () => {
             ))}
           </select>
         </div>
+
+        <div className="filter-group">
+          <label htmlFor="distrito-filter">🏛️ Distrito:</label>
+          <select
+            id="distrito-filter"
+            value={filterDistrito}
+            onChange={(e) => {
+              setFilterDistrito(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="distrito-filter"
+          >
+            <option value="all">Todos los distritos</option>
+            {distritos.map(distrito => (
+              <option key={distrito} value={distrito}>{distrito}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="filter-group">
+          <label htmlFor="sector-filter">📍 Sector:</label>
+          <select
+            id="sector-filter"
+            value={filterSector}
+            onChange={(e) => {
+              setFilterSector(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="sector-filter"
+          >
+            <option value="all">Todos los sectores</option>
+            {sectores.map(sector => (
+              <option key={sector} value={sector}>{sector}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="filter-group">
+          <label htmlFor="anexo-filter">🏘️ Anexo:</label>
+          <select
+            id="anexo-filter"
+            value={filterAnexo}
+            onChange={(e) => {
+              setFilterAnexo(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="anexo-filter"
+          >
+            <option value="all">Todos los anexos</option>
+            {anexos.map(anexo => (
+              <option key={anexo} value={anexo}>{anexo}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Botón para limpiar filtros */}
+        <div className="filter-group">
+          <button
+            onClick={() => {
+              setSearchTerm('');
+              setFilterType('all');
+              setFilterDistrito('all');
+              setFilterSector('all');
+              setFilterAnexo('all');
+              setCurrentPage(1);
+            }}
+            className="btn btn-clear-filters"
+            title="Limpiar todos los filtros"
+          >
+            🧹 Limpiar filtros
+          </button>
+        </div>
       </div>
 
       {/* Estadísticas */}
       <div className="business-table-stats">
         <p>
           📊 Mostrando {currentBusinesses.length} de {filteredBusinesses.length} negocios
-          {searchTerm && ` (filtrado de ${businesses.length} total)`}
+          {(searchTerm || filterType !== 'all' || filterDistrito !== 'all' || filterSector !== 'all' || filterAnexo !== 'all') && 
+            ` (filtrado de ${businesses.length} total)`
+          }
         </p>
+        
+        {/* Mostrar filtros activos */}
+        <div className="active-filters">
+          {searchTerm && (
+            <span className="active-filter">
+              🔍 Búsqueda: "{searchTerm}"
+            </span>
+          )}
+          {filterType !== 'all' && (
+            <span className="active-filter">
+              🏢 Tipo: {filterType}
+            </span>
+          )}
+          {filterDistrito !== 'all' && (
+            <span className="active-filter">
+              🏛️ Distrito: {filterDistrito}
+            </span>
+          )}
+          {filterSector !== 'all' && (
+            <span className="active-filter">
+              📍 Sector: {filterSector}
+            </span>
+          )}
+          {filterAnexo !== 'all' && (
+            <span className="active-filter">
+              🏘️ Anexo: {filterAnexo}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Tabla */}
