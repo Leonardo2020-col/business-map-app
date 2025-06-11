@@ -41,6 +41,7 @@ const MapLocationPicker = ({
   const [isSelecting, setIsSelecting] = useState(!initialLocation);
   const [mapError, setMapError] = useState(null);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
 
   // Verificar que Google Maps esté disponible
   useEffect(() => {
@@ -96,6 +97,7 @@ const MapLocationPicker = ({
   // Obtener ubicación actual del usuario
   const handleGetCurrentLocation = () => {
     if (navigator.geolocation) {
+      setIsGettingLocation(true);
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const newLocation = {
@@ -104,15 +106,31 @@ const MapLocationPicker = ({
           };
           setSelectedLocation(newLocation);
           setIsSelecting(false);
+          setIsGettingLocation(false);
           console.log('📍 Ubicación actual obtenida:', newLocation);
         },
         (error) => {
+          setIsGettingLocation(false);
           console.error('Error obteniendo ubicación:', error);
-          alert('No se pudo obtener tu ubicación actual. Verifica los permisos del navegador.');
+          let errorMessage = 'No se pudo obtener tu ubicación actual.';
+          
+          switch(error.code) {
+            case error.PERMISSION_DENIED:
+              errorMessage = 'Permiso de ubicación denegado. Por favor, habilita la ubicación en tu navegador.';
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMessage = 'Información de ubicación no disponible.';
+              break;
+            case error.TIMEOUT:
+              errorMessage = 'Tiempo de espera agotado para obtener la ubicación.';
+              break;
+          }
+          
+          alert(errorMessage);
         },
         {
           enableHighAccuracy: true,
-          timeout: 10000,
+          timeout: 15000,
           maximumAge: 60000
         }
       );
@@ -180,6 +198,59 @@ const MapLocationPicker = ({
       borderRadius: '8px',
       padding: '0' // Sin padding para el contenedor principal
     }}>
+      {/* Botón para obtener ubicación actual */}
+      <div style={{
+        marginBottom: '15px',
+        display: 'flex',
+        justifyContent: 'center'
+      }}>
+        <button
+          onClick={handleGetCurrentLocation}
+          disabled={isGettingLocation}
+          style={{
+            padding: '12px 24px',
+            background: isGettingLocation ? '#6c757d' : '#28a745',
+            color: 'white',
+            border: 'none',
+            borderRadius: '25px',
+            cursor: isGettingLocation ? 'not-allowed' : 'pointer',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+            transition: 'all 0.3s ease'
+          }}
+          onMouseOver={(e) => {
+            if (!isGettingLocation) {
+              e.target.style.background = '#218838';
+              e.target.style.transform = 'translateY(-1px)';
+            }
+          }}
+          onMouseOut={(e) => {
+            if (!isGettingLocation) {
+              e.target.style.background = '#28a745';
+              e.target.style.transform = 'translateY(0)';
+            }
+          }}
+        >
+          {isGettingLocation ? (
+            <>
+              <span style={{ 
+                animation: 'spin 1s linear infinite',
+                display: 'inline-block'
+              }}>⏳</span>
+              Obteniendo ubicación...
+            </>
+          ) : (
+            <>
+              📍 Usar mi ubicación actual
+            </>
+          )}
+        </button>
+      </div>
+
       {/* Información de la ubicación seleccionada */}
       {selectedLocation && (
         <div style={{
@@ -291,6 +362,16 @@ const MapLocationPicker = ({
           ✅ Confirmar Ubicación
         </button>
       </div>
+
+      {/* Estilos CSS inline para la animación */}
+      <style>
+        {`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}
+      </style>
     </div>
   );
 };
