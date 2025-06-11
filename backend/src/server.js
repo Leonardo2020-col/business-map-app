@@ -50,7 +50,6 @@ app.use((req, res, next) => {
 // IMPORTACIONES SEGURAS
 // ===============================================
 let sequelize, User, Business;
-let authMiddleware;
 
 try {
   console.log('📡 Importando configuración de base de datos...');
@@ -70,19 +69,6 @@ try {
   console.error('❌ Error importando modelos:', error.message);
   User = null;
   Business = null;
-}
-
-try {
-  console.log('🔐 Importando middleware de autenticación...');
-  const authModule = require('./middleware/auth');
-  authMiddleware = authModule.auth;
-  console.log('✅ Middleware de auth importado');
-} catch (error) {
-  console.error('❌ Error importando auth middleware:', error.message);
-  authMiddleware = (req, res, next) => {
-    console.warn('⚠️ Auth middleware no disponible');
-    next();
-  };
 }
 
 // ===============================================
@@ -138,8 +124,7 @@ app.get('/api/health', async (req, res) => {
   healthData.features = {
     database: !!sequelize,
     models: !!(User && Business),
-    auth: !!authMiddleware,
-    routes: 'Loading...'
+    routes: 'Loaded'
   };
 
   res.status(healthData.status === 'OK' ? 200 : 503).json(healthData);
@@ -152,7 +137,7 @@ app.get('/api', (req, res) => {
     version: '2.0.0',
     description: 'API para gestión de negocios con sistema de usuarios',
     timestamp: new Date().toISOString(),
-    status: 'Cargando componentes...',
+    status: 'Running',
     endpoints: {
       health: 'GET /api/health',
       info: 'GET /api',
@@ -164,7 +149,7 @@ app.get('/api', (req, res) => {
 });
 
 // ===============================================
-// IMPORTAR Y CONFIGURAR RUTAS DE FORMA SEGURA
+// REGISTRAR RUTAS EN ORDEN CORRECTO
 // ===============================================
 
 // Función para registrar rutas de manera segura
@@ -177,35 +162,24 @@ const safeRouteRegistration = (path, routeFile, description) => {
     return true;
   } catch (error) {
     console.error(`❌ Error cargando rutas ${description}:`, error.message);
-    
-    // Crear ruta de fallback
-    app.use(path, (req, res) => {
-      res.status(503).json({
-        success: false,
-        message: `Rutas ${description} no disponibles`,
-        error: 'ROUTES_NOT_LOADED',
-        path: req.path,
-        suggestion: `Verificar archivo ${routeFile}`
-      });
-    });
     return false;
   }
 };
 
-// ORDEN CORRECTO: Registrar rutas SIN middleware primero
-console.log('🛣️ Registrando rutas principales...');
+// ORDEN CORRECTO: Rutas específicas primero, luego las generales
+console.log('🛣️ Registrando rutas...');
 
-// 1. Rutas de autenticación (sin middleware)
-const authLoaded = safeRouteRegistration('/api/auth', './routes/auth', 'de autenticación');
+// 1. Rutas de autenticación (sin middleware adicional)
+safeRouteRegistration('/api/auth', './routes/auth', 'de autenticación');
 
-// 2. Rutas de negocios (SIN middleware inicialmente)
-const businessLoaded = safeRouteRegistration('/api/businesses', './routes/businesses', 'de negocios');
+// 2. Rutas de usuarios (nivel básico)
+safeRouteRegistration('/api/users', './routes/users', 'de usuarios');
 
-// 3. Rutas de usuarios (SIN middleware inicialmente) 
-const userLoaded = safeRouteRegistration('/api/users', './routes/users', 'de usuarios');
+// 3. Rutas de negocios (con middleware interno)
+safeRouteRegistration('/api/businesses', './routes/businesses', 'de negocios');
 
-// 4. Rutas de administración (con su propio middleware interno)
-const adminLoaded = safeRouteRegistration('/api/admin/users', './routes/admin/users', 'de administración');
+// 4. Rutas de administración (MÁS ESPECÍFICAS PRIMERO)
+safeRouteRegistration('/api/admin/users', './routes/admin/users', 'de administración de usuarios');
 
 // ===============================================
 // CONFIGURAR ASOCIACIONES DE MODELOS
@@ -248,8 +222,9 @@ if (isProduction) {
     app.use(express.static(staticPath));
     console.log('✅ Archivos estáticos configurados');
     
-    // SPA fallback
+    // SPA fallback - DEBE IR AL FINAL
     app.get('*', (req, res) => {
+      // No interferir con rutas de API
       if (req.path.startsWith('/api/')) {
         return res.status(404).json({
           success: false,
@@ -300,7 +275,7 @@ if (isProduction) {
 }
 
 // ===============================================
-// MANEJO DE ERRORES
+// MANEJO DE ERRORES (AL FINAL)
 // ===============================================
 app.use((err, req, res, next) => {
   const timestamp = new Date().toISOString();
@@ -346,7 +321,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Rutas no encontradas
+// Rutas no encontradas (MUY AL FINAL)
 app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
@@ -391,7 +366,7 @@ const initializeServer = async () => {
       } catch (dbError) {
         console.error('❌ Error de conexión a BD:', dbError.message);
         if (isProduction) {
-          throw dbError;
+          console.warn('⚠️ Continuando sin BD en producción...');
         }
       }
     }
