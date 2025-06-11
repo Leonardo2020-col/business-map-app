@@ -45,85 +45,191 @@ const GoogleMapComponent = () => {
   const [error, setError] = useState('');
   const [map, setMap] = useState(null);
   const [center, setCenter] = useState(defaultCenter);
+  const [debugInfo, setDebugInfo] = useState(null);
 
-  // Cargar datos al montar el componente
-  useEffect(() => {
-    loadMapData();
-  }, []);
+  // Función directa para cargar negocios sin usar axios interceptors
+  const loadBusinessesDirectly = async () => {
+    try {
+      console.log('🔄 Cargando negocios directamente...');
+      
+      const token = localStorage.getItem('token');
+      const headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      };
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        console.log('🔐 Token incluido en headers');
+      }
+      
+      // URL basada en tu configuración de producción
+      const apiUrl = import.meta.env.PROD ? '/api' : 'http://localhost:5000/api';
+      const fullUrl = `${apiUrl}/businesses`;
+      
+      console.log('🌐 Haciendo petición a:', fullUrl);
+      
+      const response = await fetch(fullUrl, {
+        method: 'GET',
+        headers,
+        credentials: 'include'
+      });
+      
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response headers:', Object.fromEntries(response.headers));
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Error response:', errorText);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('✅ Datos recibidos:', data);
+      
+      return data;
+      
+    } catch (error) {
+      console.error('❌ Error en fetch directo:', error);
+      throw error;
+    }
+  };
 
-  // Filtrar negocios cuando cambia el tipo seleccionado
-  useEffect(() => {
-    filterBusinesses();
-  }, [businesses, selectedType]);
-
+  // Función mejorada para cargar datos del mapa
   const loadMapData = async () => {
     try {
       setLoading(true);
       setError('');
+      setDebugInfo(null);
 
-      console.log('🗺️ Cargando datos para el mapa...');
+      console.log('🗺️ Iniciando carga de datos del mapa...');
 
-      // Cargar negocios y tipos en paralelo
-      const [businessResponse, typesResponse] = await Promise.all([
-        businessAPI.getAll({ limit: 500 }), // Cargar más negocios
-        businessAPI.getTypes()
-      ]);
-
-      console.log('📊 Respuesta de negocios:', businessResponse);
-
-      if (businessResponse && businessResponse.success) {
-        const allBusinesses = businessResponse.data || [];
-        console.log(`📋 Total negocios recibidos: ${allBusinesses.length}`);
+      // Método 1: Usar fetch directo (más confiable)
+      let businessResponse = null;
+      let method = '';
+      
+      try {
+        businessResponse = await loadBusinessesDirectly();
+        method = 'fetch directo';
+      } catch (fetchError) {
+        console.log('⚠️ Fetch directo falló, intentando con businessAPI...');
         
-        // Filtrar solo negocios con coordenadas válidas
-        const businessesWithCoords = allBusinesses.filter(business => {
-          const hasCoords = business.latitude && business.longitude;
-          const lat = parseFloat(business.latitude);
-          const lng = parseFloat(business.longitude);
-          const validCoords = !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0;
-          
-          if (hasCoords && validCoords) {
-            console.log(`✅ Negocio con coordenadas válidas: ${business.name} (${lat}, ${lng})`);
-            return true;
-          } else {
-            console.log(`❌ Negocio sin coordenadas: ${business.name}`);
-            return false;
-          }
-        });
-        
-        setBusinesses(businessesWithCoords);
-        console.log(`📍 ${businessesWithCoords.length} negocios con coordenadas válidas cargados`);
-        
-        // Centrar mapa en el primer negocio si existe
-        if (businessesWithCoords.length > 0) {
-          const firstBusiness = businessesWithCoords[0];
-          const newCenter = {
-            lat: parseFloat(firstBusiness.latitude),
-            lng: parseFloat(firstBusiness.longitude)
-          };
-          setCenter(newCenter);
-          console.log(`🎯 Centrando mapa en: ${firstBusiness.name}`, newCenter);
-        } else {
-          console.log('⚠️ No hay negocios con coordenadas, usando centro por defecto');
+        // Método 2: Fallback a businessAPI
+        try {
+          const apiResponse = await businessAPI.getAll({ limit: 500 });
+          businessResponse = apiResponse.data; // axios wraps en .data
+          method = 'businessAPI';
+          console.log('✅ businessAPI funcionó:', businessResponse);
+        } catch (apiError) {
+          console.error('❌ businessAPI también falló:', apiError);
+          throw fetchError; // Lanzar el error original
         }
-      } else {
-        console.error('❌ Error en respuesta de negocios:', businessResponse);
       }
 
-      if (typesResponse && typesResponse.success) {
-        setBusinessTypes(typesResponse.data || []);
-        console.log(`🏷️ ${typesResponse.data?.length || 0} tipos de negocio cargados`);
+      console.log(`📊 Datos cargados usando: ${method}`);
+      console.log('📊 Respuesta completa:', businessResponse);
+
+      // Procesar la respuesta
+      let allBusinesses = [];
+      
+      if (businessResponse) {
+        // Manejar diferentes estructuras de respuesta
+        if (businessResponse.success && Array.isArray(businessResponse.data)) {
+          allBusinesses = businessResponse.data;
+          console.log('✅ Estructura: {success: true, data: [...]}');
+        } else if (Array.isArray(businessResponse.data)) {
+          allBusinesses = businessResponse.data;
+          console.log('✅ Estructura: {data: [...]}');
+        } else if (Array.isArray(businessResponse)) {
+          allBusinesses = businessResponse;
+          console.log('✅ Estructura: [...]');
+        } else {
+          console.error('❌ Estructura de respuesta no reconocida:', businessResponse);
+          throw new Error('Estructura de respuesta inválida');
+        }
+      }
+
+      console.log(`📋 Total negocios recibidos: ${allBusinesses.length}`);
+      
+      // Filtrar negocios con coordenadas válidas
+      const businessesWithCoords = allBusinesses.filter(business => {
+        const hasCoords = business.latitude && business.longitude;
+        if (!hasCoords) {
+          console.log(`⚠️ Negocio sin coordenadas: ${business.name || business.id}`);
+          return false;
+        }
+        
+        const lat = parseFloat(business.latitude);
+        const lng = parseFloat(business.longitude);
+        const validCoords = !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0;
+        
+        if (!validCoords) {
+          console.log(`⚠️ Coordenadas inválidas: ${business.name} (${business.latitude}, ${business.longitude})`);
+          return false;
+        }
+        
+        console.log(`✅ Negocio válido: ${business.name} (${lat}, ${lng})`);
+        return true;
+      });
+      
+      setBusinesses(businessesWithCoords);
+      console.log(`📍 ${businessesWithCoords.length} negocios con coordenadas válidas`);
+      
+      // Información de debug
+      setDebugInfo({
+        method,
+        totalReceived: allBusinesses.length,
+        validCoordinates: businessesWithCoords.length,
+        invalidCoordinates: allBusinesses.length - businessesWithCoords.length,
+        sampleBusiness: businessesWithCoords[0] || null,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Centrar mapa en el primer negocio si existe
+      if (businessesWithCoords.length > 0) {
+        const firstBusiness = businessesWithCoords[0];
+        const newCenter = {
+          lat: parseFloat(firstBusiness.latitude),
+          lng: parseFloat(firstBusiness.longitude)
+        };
+        setCenter(newCenter);
+        console.log(`🎯 Centrando mapa en: ${firstBusiness.name}`, newCenter);
+      } else {
+        console.log('⚠️ No hay negocios con coordenadas válidas, usando centro por defecto');
+      }
+
+      // Cargar tipos de negocio
+      try {
+        const typesResponse = await businessAPI.getTypes();
+        if (typesResponse && typesResponse.data && typesResponse.data.success) {
+          setBusinessTypes(typesResponse.data.data || []);
+          console.log(`🏷️ ${typesResponse.data.data?.length || 0} tipos cargados`);
+        }
+      } catch (typesError) {
+        console.warn('⚠️ No se pudieron cargar tipos de negocio:', typesError);
+        // Extraer tipos únicos de los negocios cargados
+        const uniqueTypes = [...new Set(businessesWithCoords.map(b => b.business_type))].filter(Boolean);
+        setBusinessTypes(uniqueTypes);
+        console.log(`🏷️ ${uniqueTypes.length} tipos extraídos de negocios`);
       }
 
     } catch (error) {
       console.error('❌ Error cargando datos del mapa:', error);
-      setError('Error cargando datos: ' + error.message);
+      const errorMessage = error.message || 'Error desconocido';
+      setError(`Error cargando datos: ${errorMessage}`);
+      
+      setDebugInfo({
+        error: errorMessage,
+        timestamp: new Date().toISOString(),
+        stack: error.stack
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const filterBusinesses = () => {
+  // Filtrar negocios cuando cambia el tipo seleccionado
+  useEffect(() => {
     if (selectedType === 'all') {
       setFilteredBusinesses(businesses);
       console.log(`🔍 Mostrando todos los negocios: ${businesses.length}`);
@@ -134,7 +240,12 @@ const GoogleMapComponent = () => {
       setFilteredBusinesses(filtered);
       console.log(`🔍 Filtrando por '${selectedType}': ${filtered.length} negocios`);
     }
-  };
+  }, [businesses, selectedType]);
+
+  // Cargar datos al montar el componente
+  useEffect(() => {
+    loadMapData();
+  }, []);
 
   const onMapLoad = useCallback((mapInstance) => {
     console.log('✅ Google Maps cargado exitosamente');
@@ -221,6 +332,39 @@ const GoogleMapComponent = () => {
     }
   };
 
+  // Componente de información de debug
+  const DebugInfo = () => {
+    if (!debugInfo) return null;
+    
+    return (
+      <div style={{
+        position: 'fixed',
+        bottom: '20px',
+        right: '20px',
+        background: 'rgba(0, 0, 0, 0.8)',
+        color: 'white',
+        padding: '10px',
+        borderRadius: '8px',
+        fontSize: '12px',
+        maxWidth: '300px',
+        zIndex: 1000,
+        fontFamily: 'monospace'
+      }}>
+        <strong>🔧 Debug Info:</strong>
+        <div style={{ marginTop: '5px' }}>
+          {debugInfo.method && <div>📡 Método: {debugInfo.method}</div>}
+          {debugInfo.totalReceived !== undefined && <div>📊 Total recibidos: {debugInfo.totalReceived}</div>}
+          {debugInfo.validCoordinates !== undefined && <div>📍 Con coordenadas: {debugInfo.validCoordinates}</div>}
+          {debugInfo.invalidCoordinates !== undefined && <div>⚠️ Sin coordenadas: {debugInfo.invalidCoordinates}</div>}
+          {debugInfo.error && <div style={{color: '#ff6b6b'}}>❌ Error: {debugInfo.error}</div>}
+          <div style={{ marginTop: '5px', fontSize: '10px', opacity: 0.7 }}>
+            {debugInfo.timestamp}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Si no hay API key, mostrar mensaje
   if (!GOOGLE_MAPS_API_KEY) {
     return (
@@ -228,6 +372,7 @@ const GoogleMapComponent = () => {
         <div className="map-error">
           <h2>🗺️ Google Maps no configurado</h2>
           <p>Se requiere una API Key de Google Maps para mostrar el mapa.</p>
+          <p>Configura VITE_GOOGLE_MAPS_API_KEY en tus variables de entorno.</p>
         </div>
       </div>
     );
@@ -239,8 +384,14 @@ const GoogleMapComponent = () => {
         <div className="map-loading">
           <div className="loading-spinner"></div>
           <h2>🗺️ Cargando mapa...</h2>
-          <p>Preparando {businesses.length} negocios</p>
+          <p>Cargando {businesses.length} negocios...</p>
+          {debugInfo && (
+            <div style={{ marginTop: '10px', fontSize: '12px', opacity: 0.7 }}>
+              {debugInfo.method && `Método: ${debugInfo.method}`}
+            </div>
+          )}
         </div>
+        <DebugInfo />
       </div>
     );
   }
@@ -254,7 +405,29 @@ const GoogleMapComponent = () => {
           <button onClick={loadMapData} className="btn btn-primary">
             🔄 Reintentar
           </button>
+          
+          {/* Mostrar lista de negocios si los hay */}
+          {businesses.length > 0 && (
+            <div style={{ marginTop: '20px', maxHeight: '300px', overflowY: 'auto' }}>
+              <h3>📋 Negocios cargados ({businesses.length})</h3>
+              {businesses.slice(0, 5).map(business => (
+                <div key={business.id} style={{
+                  padding: '10px',
+                  margin: '5px 0',
+                  background: '#f0f0f0',
+                  borderRadius: '5px',
+                  textAlign: 'left'
+                }}>
+                  <strong>{business.name}</strong><br/>
+                  <small>{business.business_type} - {business.address}</small><br/>
+                  <small>Coords: {business.latitude}, {business.longitude}</small>
+                </div>
+              ))}
+              {businesses.length > 5 && <p>... y {businesses.length - 5} más</p>}
+            </div>
+          )}
         </div>
+        <DebugInfo />
       </div>
     );
   }
@@ -308,6 +481,14 @@ const GoogleMapComponent = () => {
               >
                 🌍
               </button>
+              
+              <button
+                onClick={loadMapData}
+                className="control-btn"
+                title="Recargar datos"
+              >
+                🔄
+              </button>
             </div>
             
             <div className="map-stats">
@@ -336,8 +517,6 @@ const GoogleMapComponent = () => {
               {filteredBusinesses.map((business) => {
                 const lat = parseFloat(business.latitude);
                 const lng = parseFloat(business.longitude);
-                
-                console.log(`🗺️ Renderizando marcador: ${business.name} en (${lat}, ${lng})`);
                 
                 return (
                   <Marker
@@ -415,6 +594,8 @@ const GoogleMapComponent = () => {
           </div>
         </div>
       </LoadScript>
+      
+      <DebugInfo />
     </div>
   );
 };
