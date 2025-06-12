@@ -383,6 +383,15 @@ const GoogleMapComponent = () => {
         loadingElement={<div>Cargando Google Maps...</div>}
       >
         <div className="map-layout-clean">
+          {/* Botón de regreso al dashboard - DENTRO DEL MAPA */}
+          <button
+            onClick={() => window.location.href = '/dashboard'}
+            className="back-to-dashboard-btn"
+            title="Volver al Dashboard"
+          >
+            ←
+          </button>
+
           {/* Barra de controles flotante - SUPERIOR IZQUIERDA */}
           <div className="floating-controls">
             <div className="controls-group">
