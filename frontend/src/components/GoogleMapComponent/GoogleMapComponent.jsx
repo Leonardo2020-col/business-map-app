@@ -45,7 +45,6 @@ const GoogleMapComponent = () => {
   const [error, setError] = useState('');
   const [map, setMap] = useState(null);
   const [center, setCenter] = useState(defaultCenter);
-  const [debugInfo, setDebugInfo] = useState(null);
 
   // Función directa para cargar negocios sin usar axios interceptors
   const loadBusinessesDirectly = async () => {
@@ -76,7 +75,6 @@ const GoogleMapComponent = () => {
       });
       
       console.log('📡 Response status:', response.status);
-      console.log('📡 Response headers:', Object.fromEntries(response.headers));
       
       if (!response.ok) {
         const errorText = await response.text();
@@ -100,7 +98,6 @@ const GoogleMapComponent = () => {
     try {
       setLoading(true);
       setError('');
-      setDebugInfo(null);
 
       console.log('🗺️ Iniciando carga de datos del mapa...');
 
@@ -127,7 +124,6 @@ const GoogleMapComponent = () => {
       }
 
       console.log(`📊 Datos cargados usando: ${method}`);
-      console.log('📊 Respuesta completa:', businessResponse);
 
       // Procesar la respuesta
       let allBusinesses = [];
@@ -175,16 +171,6 @@ const GoogleMapComponent = () => {
       setBusinesses(businessesWithCoords);
       console.log(`📍 ${businessesWithCoords.length} negocios con coordenadas válidas`);
       
-      // Información de debug
-      setDebugInfo({
-        method,
-        totalReceived: allBusinesses.length,
-        validCoordinates: businessesWithCoords.length,
-        invalidCoordinates: allBusinesses.length - businessesWithCoords.length,
-        sampleBusiness: businessesWithCoords[0] || null,
-        timestamp: new Date().toISOString()
-      });
-      
       // Centrar mapa en el primer negocio si existe
       if (businessesWithCoords.length > 0) {
         const firstBusiness = businessesWithCoords[0];
@@ -217,12 +203,6 @@ const GoogleMapComponent = () => {
       console.error('❌ Error cargando datos del mapa:', error);
       const errorMessage = error.message || 'Error desconocido';
       setError(`Error cargando datos: ${errorMessage}`);
-      
-      setDebugInfo({
-        error: errorMessage,
-        timestamp: new Date().toISOString(),
-        stack: error.stack
-      });
     } finally {
       setLoading(false);
     }
@@ -332,39 +312,6 @@ const GoogleMapComponent = () => {
     }
   };
 
-  // Componente de información de debug
-  const DebugInfo = () => {
-    if (!debugInfo) return null;
-    
-    return (
-      <div style={{
-        position: 'fixed',
-        bottom: '20px',
-        right: '20px',
-        background: 'rgba(0, 0, 0, 0.8)',
-        color: 'white',
-        padding: '10px',
-        borderRadius: '8px',
-        fontSize: '12px',
-        maxWidth: '300px',
-        zIndex: 1000,
-        fontFamily: 'monospace'
-      }}>
-        <strong>🔧 Debug Info:</strong>
-        <div style={{ marginTop: '5px' }}>
-          {debugInfo.method && <div>📡 Método: {debugInfo.method}</div>}
-          {debugInfo.totalReceived !== undefined && <div>📊 Total recibidos: {debugInfo.totalReceived}</div>}
-          {debugInfo.validCoordinates !== undefined && <div>📍 Con coordenadas: {debugInfo.validCoordinates}</div>}
-          {debugInfo.invalidCoordinates !== undefined && <div>⚠️ Sin coordenadas: {debugInfo.invalidCoordinates}</div>}
-          {debugInfo.error && <div style={{color: '#ff6b6b'}}>❌ Error: {debugInfo.error}</div>}
-          <div style={{ marginTop: '5px', fontSize: '10px', opacity: 0.7 }}>
-            {debugInfo.timestamp}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   // Si no hay API key, mostrar mensaje
   if (!GOOGLE_MAPS_API_KEY) {
     return (
@@ -385,13 +332,7 @@ const GoogleMapComponent = () => {
           <div className="loading-spinner"></div>
           <h2>🗺️ Cargando mapa...</h2>
           <p>Cargando {businesses.length} negocios...</p>
-          {debugInfo && (
-            <div style={{ marginTop: '10px', fontSize: '12px', opacity: 0.7 }}>
-              {debugInfo.method && `Método: ${debugInfo.method}`}
-            </div>
-          )}
         </div>
-        <DebugInfo />
       </div>
     );
   }
@@ -427,7 +368,6 @@ const GoogleMapComponent = () => {
             </div>
           )}
         </div>
-        <DebugInfo />
       </div>
     );
   }
@@ -441,7 +381,7 @@ const GoogleMapComponent = () => {
         onError={onMapError}
       >
         <div className="map-layout-clean">
-          {/* Barra de controles flotante */}
+          {/* Barra de controles flotante - SUPERIOR IZQUIERDA */}
           <div className="floating-controls">
             <div className="controls-group">
               <select
@@ -490,7 +430,10 @@ const GoogleMapComponent = () => {
                 🔄
               </button>
             </div>
-            
+          </div>
+
+          {/* Panel de estadísticas - INFERIOR IZQUIERDA */}
+          <div className="map-info-panel">
             <div className="map-stats">
               Mostrando {filteredBusinesses.length} de {businesses.length} negocios
             </div>
@@ -594,8 +537,6 @@ const GoogleMapComponent = () => {
           </div>
         </div>
       </LoadScript>
-      
-      <DebugInfo />
     </div>
   );
 };
