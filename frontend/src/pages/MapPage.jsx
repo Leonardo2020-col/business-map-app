@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import GoogleMapComponent from '../components/GoogleMapComponent/GoogleMapComponent';
 import { useAuth } from '../contexts/AuthContext';
+import './MapPage.css';
 
 const MapPage = () => {
   const { user } = useAuth();

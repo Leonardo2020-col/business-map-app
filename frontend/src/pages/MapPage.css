@@ -112,28 +112,28 @@
     padding: 6px 12px;
     height: 40px; /* Más pequeño en móvil */
   }
-
+  
   .back-arrow-btn,
   .add-btn {
     width: 30px;
     height: 30px;
     font-size: 1rem;
   }
-
+  
   .header-info {
     gap: 8px;
   }
-
+  
   .map-title {
     font-size: 0.9rem;
     display: none; /* Ocultar título en móvil para ahorrar espacio */
   }
-
+  
   .user-badge {
     font-size: 0.7rem;
     padding: 2px 6px;
   }
-
+  
   .map-container-wrapper {
     height: calc(100vh - 40px);
   }
@@ -144,19 +144,19 @@
     padding: 4px 8px;
     height: 35px; /* Aún más pequeño */
   }
-
+  
   .back-arrow-btn,
   .add-btn {
     width: 28px;
     height: 28px;
     font-size: 0.9rem;
   }
-
+  
   .user-badge {
     font-size: 0.65rem;
     padding: 2px 4px;
   }
-
+  
   .map-container-wrapper {
     height: calc(100vh - 35px);
   }
