@@ -331,7 +331,7 @@ const GoogleMapComponent = () => {
         <div className="map-loading">
           <div className="loading-spinner"></div>
           <h2>🗺️ Cargando mapa...</h2>
-          <p>Cargando {businesses.length} negocios...</p>
+          <p>Cargando negocios...</p>
         </div>
       </div>
     );
@@ -379,6 +379,7 @@ const GoogleMapComponent = () => {
         libraries={libraries}
         onLoad={() => console.log('LoadScript ready')}
         onError={onMapError}
+        loadingElement={<div>Cargando Google Maps...</div>}
       >
         <div className="map-layout-clean">
           {/* Barra de controles flotante - SUPERIOR IZQUIERDA */}
@@ -460,6 +461,11 @@ const GoogleMapComponent = () => {
               {filteredBusinesses.map((business) => {
                 const lat = parseFloat(business.latitude);
                 const lng = parseFloat(business.longitude);
+                
+                if (isNaN(lat) || isNaN(lng)) {
+                  console.warn(`Coordenadas inválidas para ${business.name}:`, business.latitude, business.longitude);
+                  return null;
+                }
                 
                 return (
                   <Marker
