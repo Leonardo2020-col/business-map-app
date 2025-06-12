@@ -71,12 +71,25 @@
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
 }
 
-/* Panel de información - INFERIOR IZQUIERDA */
+/* Panel de información - INTEGRADO CON LOS CONTROLES */
 .map-info-panel {
-  position: fixed !important; /* Cambiar a fixed */
-  bottom: 20px !important;
-  left: 20px !important;
-  z-index: 10000 !important; /* Mismo nivel que otros controles */
+  /* Ahora será parte de los controles, no un elemento separado */
+  display: none !important; /* Ocultar el panel separado */
+}
+
+/* Nuevo estilo para las estadísticas dentro de los controles */
+.map-stats {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  font-size: 0.85rem !important;
+  color: #4a5568 !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+  border: none !important;
+  min-width: auto !important;
+  white-space: nowrap !important;
 }
 
 .map-stats {

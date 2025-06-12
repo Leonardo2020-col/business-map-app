@@ -392,25 +392,32 @@ const GoogleMapComponent = () => {
             ←
           </button>
 
-          {/* Barra de controles flotante - SUPERIOR IZQUIERDA */}
+          {/* Controles integrados - PARTE INFERIOR */}
           <div className="floating-controls">
+            {/* Filtro de tipo */}
+            <select
+              value={selectedType}
+              onChange={(e) => setSelectedType(e.target.value)}
+              className="type-filter"
+            >
+              <option value="all">Todos ({businesses.length})</option>
+              {businessTypes.map((type) => {
+                const count = businesses.filter(b => b.business_type === type).length;
+                return (
+                  <option key={type} value={type}>
+                    {type} ({count})
+                  </option>
+                );
+              })}
+            </select>
+            
+            {/* Estadísticas integradas */}
+            <div className="map-stats">
+              Mostrando {filteredBusinesses.length} de {businesses.length} negocios
+            </div>
+            
+            {/* Botones de control */}
             <div className="controls-group">
-              <select
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-                className="type-filter"
-              >
-                <option value="all">Todos ({businesses.length})</option>
-                {businessTypes.map((type) => {
-                  const count = businesses.filter(b => b.business_type === type).length;
-                  return (
-                    <option key={type} value={type}>
-                      {type} ({count})
-                    </option>
-                  );
-                })}
-              </select>
-              
               <button
                 onClick={getCurrentLocation}
                 className="control-btn"
@@ -440,13 +447,6 @@ const GoogleMapComponent = () => {
               >
                 🔄
               </button>
-            </div>
-          </div>
-
-          {/* Panel de estadísticas - INFERIOR IZQUIERDA */}
-          <div className="map-info-panel">
-            <div className="map-stats">
-              Mostrando {filteredBusinesses.length} de {businesses.length} negocios
             </div>
           </div>
 
