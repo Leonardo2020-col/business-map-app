@@ -10,7 +10,8 @@ const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 // Configuración del mapa
 const mapContainerStyle = {
   width: '100%',
-  height: '100%'
+  height: '100%',
+  minHeight: '400px' // Altura mínima para asegurar visibilidad
 };
 
 const defaultCenter = {
