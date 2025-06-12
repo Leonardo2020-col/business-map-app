@@ -73,10 +73,10 @@
 
 /* Panel de información - INFERIOR IZQUIERDA */
 .map-info-panel {
-  position: absolute;
-  bottom: 20px;
-  left: 20px;
-  z-index: 1001; /* Mismo nivel que otros controles */
+  position: fixed !important; /* Cambiar a fixed */
+  bottom: 20px !important;
+  left: 20px !important;
+  z-index: 10000 !important; /* Mismo nivel que otros controles */
 }
 
 .map-stats {
