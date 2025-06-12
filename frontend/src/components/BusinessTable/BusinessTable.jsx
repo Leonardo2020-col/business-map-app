@@ -431,16 +431,12 @@ const BusinessTable = () => {
   const [filterSector, setFilterSector] = useState('all');
   const [filterAnexo, setFilterAnexo] = useState('all');
   const [businessTypes, setBusinessTypes] = useState([]);
-  const [distritos, setDistritos] = useState([]);
-  const [sectores, setSectores] = useState([]);
-  const [anexos, setAnexos] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
 
   useEffect(() => {
     loadBusinesses();
     loadBusinessTypes();
-    loadLocationFilters();
   }, []);
 
   const loadBusinesses = async () => {
@@ -478,38 +474,8 @@ const BusinessTable = () => {
   };
 
   const loadLocationFilters = async () => {
-    try {
-      // Cargar opciones únicas de distrito, sector y anexo desde los negocios existentes
-      const response = await businessAPI.getAll();
-      const businessesData = response.data?.data || response.data || [];
-      
-      if (Array.isArray(businessesData)) {
-        // Extraer valores únicos para cada filtro
-        const uniqueDistritos = [...new Set(businessesData
-          .map(b => b.distrito)
-          .filter(d => d && d.trim() !== '')
-        )].sort();
-        
-        const uniqueSectores = [...new Set(businessesData
-          .map(b => b.sector)
-          .filter(s => s && s.trim() !== '')
-        )].sort();
-        
-        const uniqueAnexos = [...new Set(businessesData
-          .map(b => b.anexo)
-          .filter(a => a && a.trim() !== '')
-        )].sort();
-        
-        setDistritos(uniqueDistritos);
-        setSectores(uniqueSectores);
-        setAnexos(uniqueAnexos);
-      }
-    } catch (err) {
-      console.error('Error cargando filtros de ubicación:', err);
-      setDistritos([]);
-      setSectores([]);
-      setAnexos([]);
-    }
+    // Ya no necesitamos cargar las opciones para dropdowns
+    // Los filtros ahora son de texto libre
   };
 
   const handleDelete = async (businessId) => {
@@ -529,15 +495,19 @@ const BusinessTable = () => {
     
     const matchesSearch = !searchTerm || 
       (business.name && business.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (business.address && business.address.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (business.distrito && business.distrito.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (business.sector && business.sector.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (business.anexo && business.anexo.toLowerCase().includes(searchTerm.toLowerCase()));
+      (business.address && business.address.toLowerCase().includes(searchTerm.toLowerCase()));
     
-    const matchesType = filterType === 'all' || business.business_type === filterType;
-    const matchesDistrito = filterDistrito === 'all' || business.distrito === filterDistrito;
-    const matchesSector = filterSector === 'all' || business.sector === filterSector;
-    const matchesAnexo = filterAnexo === 'all' || business.anexo === filterAnexo;
+    const matchesType = filterType === 'all' || 
+      (business.business_type && business.business_type.toLowerCase().includes(filterType.toLowerCase()));
+    
+    const matchesDistrito = filterDistrito === 'all' || 
+      (business.distrito && business.distrito.toLowerCase().includes(filterDistrito.toLowerCase()));
+    
+    const matchesSector = filterSector === 'all' || 
+      (business.sector && business.sector.toLowerCase().includes(filterSector.toLowerCase()));
+    
+    const matchesAnexo = filterAnexo === 'all' || 
+      (business.anexo && business.anexo.toLowerCase().includes(filterAnexo.toLowerCase()));
     
     return matchesSearch && matchesType && matchesDistrito && matchesSector && matchesAnexo;
   });
@@ -583,12 +553,12 @@ const BusinessTable = () => {
 
       {/* FILTROS */}
       <div className="business-table-filters">
-        <div className="filter-group">
+        <div className="filter-group filter-search">
           <label htmlFor="search">🔍 Buscar:</label>
           <input
             id="search"
             type="text"
-            placeholder="Buscar por nombre, dirección, distrito, sector o anexo..."
+            placeholder="Buscar por nombre..."
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
@@ -600,78 +570,66 @@ const BusinessTable = () => {
 
         <div className="filter-group">
           <label htmlFor="type-filter">🏢 Tipo:</label>
-          <select
+          <input
             id="type-filter"
-            value={filterType}
+            type="text"
+            placeholder="Filtrar por tipo..."
+            value={filterType === 'all' ? '' : filterType}
             onChange={(e) => {
-              setFilterType(e.target.value);
+              setFilterType(e.target.value || 'all');
               setCurrentPage(1);
             }}
-            className="type-filter"
-          >
-            <option value="all">Todos los tipos</option>
-            {businessTypes.map(type => (
-              <option key={type} value={type}>{type}</option>
-            ))}
-          </select>
+            className="filter-input"
+          />
         </div>
 
         <div className="filter-group">
           <label htmlFor="distrito-filter">🏛️ Distrito:</label>
-          <select
+          <input
             id="distrito-filter"
-            value={filterDistrito}
+            type="text"
+            placeholder="Filtrar por distrito..."
+            value={filterDistrito === 'all' ? '' : filterDistrito}
             onChange={(e) => {
-              setFilterDistrito(e.target.value);
+              setFilterDistrito(e.target.value || 'all');
               setCurrentPage(1);
             }}
-            className="distrito-filter"
-          >
-            <option value="all">Todos los distritos</option>
-            {distritos.map(distrito => (
-              <option key={distrito} value={distrito}>{distrito}</option>
-            ))}
-          </select>
+            className="filter-input"
+          />
         </div>
 
         <div className="filter-group">
           <label htmlFor="sector-filter">📍 Sector:</label>
-          <select
+          <input
             id="sector-filter"
-            value={filterSector}
+            type="text"
+            placeholder="Filtrar por sector..."
+            value={filterSector === 'all' ? '' : filterSector}
             onChange={(e) => {
-              setFilterSector(e.target.value);
+              setFilterSector(e.target.value || 'all');
               setCurrentPage(1);
             }}
-            className="sector-filter"
-          >
-            <option value="all">Todos los sectores</option>
-            {sectores.map(sector => (
-              <option key={sector} value={sector}>{sector}</option>
-            ))}
-          </select>
+            className="filter-input"
+          />
         </div>
 
         <div className="filter-group">
           <label htmlFor="anexo-filter">🏘️ Anexo:</label>
-          <select
+          <input
             id="anexo-filter"
-            value={filterAnexo}
+            type="text"
+            placeholder="Filtrar por anexo..."
+            value={filterAnexo === 'all' ? '' : filterAnexo}
             onChange={(e) => {
-              setFilterAnexo(e.target.value);
+              setFilterAnexo(e.target.value || 'all');
               setCurrentPage(1);
             }}
-            className="anexo-filter"
-          >
-            <option value="all">Todos los anexos</option>
-            {anexos.map(anexo => (
-              <option key={anexo} value={anexo}>{anexo}</option>
-            ))}
-          </select>
+            className="filter-input"
+          />
         </div>
 
         {/* Botón para limpiar filtros */}
-        <div className="filter-group">
+        <div className="filter-group filter-clear">
           <button
             onClick={() => {
               setSearchTerm('');
@@ -681,7 +639,7 @@ const BusinessTable = () => {
               setFilterAnexo('all');
               setCurrentPage(1);
             }}
-            className="btn btn-clear-filters"
+            className="btn btn-secondary"
             title="Limpiar todos los filtros"
           >
             🧹 Limpiar filtros
