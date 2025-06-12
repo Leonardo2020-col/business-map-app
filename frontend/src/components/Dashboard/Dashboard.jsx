@@ -177,57 +177,37 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* Quick Links */}
-        <div className="dashboard-section">
-          <div className="section-header">
-            <h2>Accesos Rápidos</h2>
-          </div>
-          <div className="quick-links-grid">
-            <Link to="/business/new" className="quick-link-card">
-              <span className="icon">➕</span>
-              <h3>Nuevo Negocio</h3>
-              <p>Agregar un negocio al directorio</p>
-            </Link>
-            
-            <Link to="/businesses" className="quick-link-card">
-              <span className="icon">🔍</span>
-              <h3>Buscar Negocios</h3>
-              <p>Explorar el directorio completo</p>
-            </Link>
-            
-            <Link to="/profile" className="quick-link-card">
-              <span className="icon">👤</span>
-              <h3>Mi Perfil</h3>
-              <p>Actualizar información personal</p>
-            </Link>
-            
-            {isAdmin() && (
-              <Link to="/admin/users" className="quick-link-card">
-                <span className="icon">⚙️</span>
-                <h3>Administración</h3>
-                <p>Gestionar usuarios y configuración</p>
+        {/* Admin Panel - Solo para administradores */}
+        {isAdmin() && (
+          <div className="dashboard-section">
+            <div className="section-header">
+              <h2>Panel de Administración</h2>
+              <span className="admin-badge">🔐 Solo Administrador</span>
+            </div>
+            <div className="admin-links-grid">
+              <Link to="/admin/passwords" className="admin-link-card">
+                <span className="icon">🔑</span>
+                <h3>Gestión de Contraseñas</h3>
+                <p>Administrar y resetear contraseñas de usuarios</p>
+                <div className="card-status active">Activo</div>
               </Link>
-            )}
-            
-            <button 
-              onClick={() => {
-                // Redirigir a la página del mapa
-                window.location.href = '/map';
-              }}
-              className="quick-link-card clickable"
-            >
-              <span className="icon">🗺️</span>
-              <h3>Ver Mapa</h3>
-              <p>Explorar negocios en mapa interactivo</p>
-            </button>
-            
-            <Link to="/api/health" className="quick-link-card" target="_blank">
-              <span className="icon">💊</span>
-              <h3>Estado del Sistema</h3>
-              <p>Verificar salud de la API</p>
-            </Link>
+              
+              <Link to="/admin/users" className="admin-link-card">
+                <span className="icon">👥</span>
+                <h3>Gestionar Usuarios</h3>
+                <p>Crear, editar y administrar cuentas de usuario</p>
+                <div className="card-status active">Activo</div>
+              </Link>
+              
+              <div className="admin-link-card disabled">
+                <span className="icon">📊</span>
+                <h3>Log del Sistema</h3>
+                <p>Monitorear actividad y eventos del sistema</p>
+                <div className="card-status coming-soon">Próximamente</div>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Footer Info */}
         <div className="dashboard-footer">
