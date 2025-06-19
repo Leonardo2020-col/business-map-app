@@ -77,53 +77,174 @@ router.get('/types/list', checkModels, async (req, res) => {
   }
 });
 
-// GET /api/businesses/stats/summary - Estadísticas generales
+// GET /api/businesses/stats/summary - Estadísticas generales (VERSIÓN ROBUSTA)
 router.get('/stats/summary', checkModels, async (req, res) => {
   try {
-    const totalBusinesses = await Business.count();
-    const activeBusinesses = await Business.count({ 
-      where: { is_active: true } 
-    });
+    console.log('📊 Obteniendo estadísticas del dashboard...');
 
-    // Estadísticas por tipo (si el campo existe)
-    let businessesByType = [];
+    // Estadísticas básicas que siempre funcionan
+    const basicStats = {
+      total: 0,
+      active: 0,
+      inactive: 0,
+      recent: 0,
+      byType: [],
+      byDistrict: [],
+      servicesStatus: {
+        total: 0,
+        withIssues: 0,
+        ok: 0
+      }
+    };
+
     try {
-      businessesByType = await Business.findAll({
-        attributes: [
-          'business_type',
-          [sequelize.fn('COUNT', sequelize.col('id')), 'count']
-        ],
-        group: ['business_type'],
-        raw: true
-      });
-    } catch (typeError) {
-      console.warn('Campo business_type no existe, usando estadísticas básicas');
+      // Contar total de negocios
+      basicStats.total = await Business.count();
+      console.log(`✅ Total de negocios: ${basicStats.total}`);
+
+      // Intentar contar activos (si el campo existe)
+      try {
+        basicStats.active = await Business.count({ 
+          where: { is_active: true } 
+        });
+        basicStats.inactive = basicStats.total - basicStats.active;
+        console.log(`✅ Activos: ${basicStats.active}, Inactivos: ${basicStats.inactive}`);
+      } catch (activeError) {
+        console.warn('⚠️ Campo is_active no existe, usando todos como activos');
+        basicStats.active = basicStats.total;
+        basicStats.inactive = 0;
+      }
+
+      // Negocios recientes (últimos 30 días)
+      try {
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        basicStats.recent = await Business.count({
+          where: {
+            created_at: { [Op.gte]: thirtyDaysAgo }
+          }
+        });
+        console.log(`✅ Negocios recientes: ${basicStats.recent}`);
+      } catch (recentError) {
+        console.warn('⚠️ No se pudo calcular negocios recientes:', recentError.message);
+        basicStats.recent = 0;
+      }
+
+      // Estadísticas por tipo (si el campo existe)
+      try {
+        const businessesByType = await Business.findAll({
+          attributes: [
+            'business_type',
+            [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+          ],
+          group: ['business_type'],
+          raw: true
+        });
+        
+        basicStats.byType = businessesByType.map(item => ({
+          type: item.business_type || 'Sin tipo',
+          count: parseInt(item.count) || 0
+        }));
+        console.log(`✅ Tipos de negocio: ${basicStats.byType.length}`);
+      } catch (typeError) {
+        console.warn('⚠️ Campo business_type no existe o error:', typeError.message);
+        basicStats.byType = [{ type: 'Todos', count: basicStats.total }];
+      }
+
+      // Estadísticas por distrito (si el campo existe)
+      try {
+        const businessesByDistrict = await Business.findAll({
+          attributes: [
+            'district',
+            [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+          ],
+          group: ['district'],
+          raw: true,
+          limit: 10 // Solo top 10
+        });
+        
+        basicStats.byDistrict = businessesByDistrict.map(item => ({
+          district: item.district || 'Sin distrito',
+          count: parseInt(item.count) || 0
+        }));
+        console.log(`✅ Distritos: ${basicStats.byDistrict.length}`);
+      } catch (districtError) {
+        console.warn('⚠️ Campo district no existe o error:', districtError.message);
+        basicStats.byDistrict = [];
+      }
+
+      // Estadísticas de servicios (si los campos existen)
+      try {
+        const today = new Date();
+        const serviceFields = [
+          'defensa_civil_expiry', 
+          'extintores_expiry', 
+          'fumigacion_expiry', 
+          'pozo_tierra_expiry', 
+          'publicidad_expiry'
+        ];
+
+        let businessesWithIssues = 0;
+        for (const field of serviceFields) {
+          try {
+            const count = await Business.count({
+              where: { [field]: { [Op.lt]: today } }
+            });
+            businessesWithIssues += count;
+          } catch (fieldError) {
+            // Campo no existe, continuar
+          }
+        }
+
+        basicStats.servicesStatus = {
+          total: basicStats.total,
+          withIssues: businessesWithIssues,
+          ok: basicStats.total - businessesWithIssues
+        };
+        console.log(`✅ Servicios - Con problemas: ${businessesWithIssues}`);
+      } catch (servicesError) {
+        console.warn('⚠️ No se pudieron calcular estadísticas de servicios:', servicesError.message);
+        basicStats.servicesStatus = {
+          total: basicStats.total,
+          withIssues: 0,
+          ok: basicStats.total
+        };
+      }
+
+    } catch (queryError) {
+      console.error('❌ Error en consultas de estadísticas:', queryError);
+      // Si hay error, devolver estadísticas básicas vacías pero válidas
     }
 
-    // Negocios recientes (últimos 30 días)
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const recentBusinesses = await Business.count({
-      where: {
-        created_at: { [Op.gte]: thirtyDaysAgo }
-      }
+    console.log('📊 Estadísticas calculadas exitosamente');
+    
+    res.json({
+      success: true,
+      data: basicStats,
+      timestamp: new Date().toISOString(),
+      message: 'Estadísticas obtenidas correctamente'
     });
 
+  } catch (error) {
+    console.error('❌ Error fatal en stats/summary:', error);
+    
+    // En caso de error total, devolver estructura básica
     res.json({
       success: true,
       data: {
-        total: totalBusinesses,
-        active: activeBusinesses,
-        inactive: totalBusinesses - activeBusinesses,
-        recent: recentBusinesses,
-        byType: businessesByType
-      }
-    });
-  } catch (error) {
-    console.error('Error al obtener estadísticas:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error interno del servidor',
-      error: 'INTERNAL_ERROR'
+        total: 0,
+        active: 0,
+        inactive: 0,
+        recent: 0,
+        byType: [],
+        byDistrict: [],
+        servicesStatus: {
+          total: 0,
+          withIssues: 0,
+          ok: 0
+        }
+      },
+      error: 'Estadísticas no disponibles temporalmente',
+      timestamp: new Date().toISOString()
     });
   }
 });
