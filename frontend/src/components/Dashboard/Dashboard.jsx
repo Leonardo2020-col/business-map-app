@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { businessAPI } from '../../services/api';
-// ✅ CORREGIR la importación - quitar "components/"
+// ✅ IMPORTACIÓN CORREGIDA
 import { RecentBusinessesSection } from '../BusinessTable/BusinessTable';
 import Navbar from '../Navbar/Navbar';
 import './Dashborad.css';
@@ -185,22 +185,43 @@ const Dashboard = () => {
               <span className="admin-badge">🔐 Solo Administrador</span>
             </div>
             <div className="admin-links-grid">
-              <Link to="/admin/passwords" className="admin-link-card">
-                <span className="icon">🔑</span>
-                <h3>Gestión de Contraseñas</h3>
-                <p>Administrar y resetear contraseñas de usuarios</p>
-                <div className="card-status active">Activo</div>
-              </Link>
-              
-              <Link to="/admin/users" className="admin-link-card">
+              <Link to="/users" className="admin-link-card">
                 <span className="icon">👥</span>
                 <h3>Gestionar Usuarios</h3>
                 <p>Crear, editar y administrar cuentas de usuario</p>
                 <div className="card-status active">Activo</div>
               </Link>
               
+              <Link to="/businesses" className="admin-link-card">
+                <span className="icon">🏢</span>
+                <h3>Gestionar Negocios</h3>
+                <p>Ver, crear y editar directorio de negocios</p>
+                <div className="card-status active">Activo</div>
+              </Link>
+
+              <Link to="/map" className="admin-link-card">
+                <span className="icon">🗺️</span>
+                <h3>Mapa Interactivo</h3>
+                <p>Visualizar negocios en el mapa geográfico</p>
+                <div className="card-status active">Activo</div>
+              </Link>
+              
               <div className="admin-link-card disabled">
                 <span className="icon">📊</span>
+                <h3>Reportes Avanzados</h3>
+                <p>Análisis detallados y estadísticas del sistema</p>
+                <div className="card-status coming-soon">Próximamente</div>
+              </div>
+
+              <div className="admin-link-card disabled">
+                <span className="icon">🔑</span>
+                <h3>Gestión de Permisos</h3>
+                <p>Configurar roles y permisos granulares</p>
+                <div className="card-status coming-soon">Próximamente</div>
+              </div>
+              
+              <div className="admin-link-card disabled">
+                <span className="icon">📋</span>
                 <h3>Log del Sistema</h3>
                 <p>Monitorear actividad y eventos del sistema</p>
                 <div className="card-status coming-soon">Próximamente</div>
