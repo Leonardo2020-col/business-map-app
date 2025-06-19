@@ -11,7 +11,7 @@ const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 const mapContainerStyle = {
   width: '100%',
   height: '100%',
-  minHeight: '400px' // Altura mínima para asegurar visibilidad
+  minHeight: '400px'
 };
 
 const defaultCenter = {
@@ -47,54 +47,125 @@ const GoogleMapComponent = () => {
   const [map, setMap] = useState(null);
   const [center, setCenter] = useState(defaultCenter);
 
-  // Función directa para cargar negocios sin usar axios interceptors
-  const loadBusinessesDirectly = async () => {
-    try {
-      console.log('🔄 Cargando negocios directamente...');
-      
-      const token = localStorage.getItem('token');
-      const headers = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      };
-      
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-        console.log('🔐 Token incluido en headers');
-      }
-      
-      // URL basada en tu configuración de producción
-      const apiUrl = import.meta.env.PROD ? '/api' : 'http://localhost:5000/api';
-      const fullUrl = `${apiUrl}/businesses`;
-      
-      console.log('🌐 Haciendo petición a:', fullUrl);
-      
-      const response = await fetch(fullUrl, {
-        method: 'GET',
-        headers,
-        credentials: 'include'
-      });
-      
-      console.log('📡 Response status:', response.status);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Error response:', errorText);
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      console.log('✅ Datos recibidos:', data);
-      
-      return data;
-      
-    } catch (error) {
-      console.error('❌ Error en fetch directo:', error);
-      throw error;
+  // ✅ FUNCIÓN CORREGIDA PARA USAR .env PRIMERO
+const loadBusinessesDirectly = async () => {
+  try {
+    console.log('🔄 Cargando negocios directamente...');
+    
+    const token = localStorage.getItem('token');
+    const headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    };
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+      console.log('🔐 Token incluido en headers');
     }
+    
+    // ✅ PRIORIDAD: 1. .env, 2. Detección automática
+    let apiUrl;
+    
+    if (import.meta.env.VITE_API_URL) {
+      // Si hay URL configurada en .env, usarla
+      apiUrl = import.meta.env.VITE_API_URL;
+      console.log('📝 Usando URL desde .env:', apiUrl);
+    } else {
+      // Fallback: detección automática
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        apiUrl = 'http://localhost:5000/api';
+        console.log('🏠 Fallback: Entorno local detectado');
+      } else {
+        apiUrl = '/api';
+        console.log('🌍 Fallback: Entorno de producción detectado');
+      }
+    }
+    
+    const fullUrl = `${apiUrl}/businesses`;
+    console.log('🌐 URL final para petición:', fullUrl);
+    
+    const response = await fetch(fullUrl, {
+      method: 'GET',
+      headers,
+      credentials: 'include'
+    });
+    
+    console.log('📡 Response status:', response.status);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Error response:', errorText);
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    console.log('✅ Datos recibidos:', data);
+    
+    return data;
+    
+  } catch (error) {
+    console.error('❌ Error en fetch directo:', error);
+    throw error;
+  }
+};
+
+  // ✅ FUNCIÓN MEJORADA PARA PROCESAR NEGOCIOS
+  const processBusinessData = (businessResponse) => {
+    let allBusinesses = [];
+    
+    if (businessResponse) {
+      // Manejar diferentes estructuras de respuesta
+      if (businessResponse.success && Array.isArray(businessResponse.data)) {
+        allBusinesses = businessResponse.data;
+        console.log('✅ Estructura: {success: true, data: [...]}');
+      } else if (Array.isArray(businessResponse.data)) {
+        allBusinesses = businessResponse.data;
+        console.log('✅ Estructura: {data: [...]}');
+      } else if (Array.isArray(businessResponse)) {
+        allBusinesses = businessResponse;
+        console.log('✅ Estructura: [...]');
+      } else {
+        console.error('❌ Estructura de respuesta no reconocida:', businessResponse);
+        throw new Error('Estructura de respuesta inválida');
+      }
+    }
+
+    console.log(`📋 Total negocios recibidos: ${allBusinesses.length}`);
+    
+    // ✅ FILTRADO MEJORADO CON NOMBRES CORRECTOS
+    const businessesWithCoords = allBusinesses.filter(business => {
+      // Manejar diferentes nombres de campos
+      const businessName = business.business_name || business.name || `Negocio ${business.id}`;
+      
+      const hasCoords = business.latitude && business.longitude;
+      if (!hasCoords) {
+        console.log(`⚠️ Negocio sin coordenadas: ${businessName}`);
+        return false;
+      }
+      
+      const lat = parseFloat(business.latitude);
+      const lng = parseFloat(business.longitude);
+      const validCoords = !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0;
+      
+      if (!validCoords) {
+        console.log(`⚠️ Coordenadas inválidas: ${businessName} (${business.latitude}, ${business.longitude})`);
+        return false;
+      }
+      
+      // Verificar rangos válidos para Perú (aproximadamente)
+      if (lat < -18.5 || lat > -0.5 || lng < -81.5 || lng > -68.5) {
+        console.log(`⚠️ Coordenadas fuera de Perú: ${businessName} (${lat}, ${lng})`);
+        return false;
+      }
+      
+      console.log(`✅ Negocio válido: ${businessName} (${lat}, ${lng})`);
+      return true;
+    });
+    
+    return businessesWithCoords;
   };
 
-  // Función mejorada para cargar datos del mapa
+  // ✅ FUNCIÓN MEJORADA PARA CARGAR DATOS DEL MAPA
   const loadMapData = async () => {
     try {
       setLoading(true);
@@ -115,7 +186,7 @@ const GoogleMapComponent = () => {
         // Método 2: Fallback a businessAPI
         try {
           const apiResponse = await businessAPI.getAll({ limit: 500 });
-          businessResponse = apiResponse.data; // axios wraps en .data
+          businessResponse = apiResponse.data || apiResponse; // axios puede wrappear en .data
           method = 'businessAPI';
           console.log('✅ businessAPI funcionó:', businessResponse);
         } catch (apiError) {
@@ -126,84 +197,62 @@ const GoogleMapComponent = () => {
 
       console.log(`📊 Datos cargados usando: ${method}`);
 
-      // Procesar la respuesta
-      let allBusinesses = [];
-      
-      if (businessResponse) {
-        // Manejar diferentes estructuras de respuesta
-        if (businessResponse.success && Array.isArray(businessResponse.data)) {
-          allBusinesses = businessResponse.data;
-          console.log('✅ Estructura: {success: true, data: [...]}');
-        } else if (Array.isArray(businessResponse.data)) {
-          allBusinesses = businessResponse.data;
-          console.log('✅ Estructura: {data: [...]}');
-        } else if (Array.isArray(businessResponse)) {
-          allBusinesses = businessResponse;
-          console.log('✅ Estructura: [...]');
-        } else {
-          console.error('❌ Estructura de respuesta no reconocida:', businessResponse);
-          throw new Error('Estructura de respuesta inválida');
-        }
-      }
-
-      console.log(`📋 Total negocios recibidos: ${allBusinesses.length}`);
-      
-      // Filtrar negocios con coordenadas válidas
-      const businessesWithCoords = allBusinesses.filter(business => {
-        const hasCoords = business.latitude && business.longitude;
-        if (!hasCoords) {
-          console.log(`⚠️ Negocio sin coordenadas: ${business.name || business.id}`);
-          return false;
-        }
-        
-        const lat = parseFloat(business.latitude);
-        const lng = parseFloat(business.longitude);
-        const validCoords = !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0;
-        
-        if (!validCoords) {
-          console.log(`⚠️ Coordenadas inválidas: ${business.name} (${business.latitude}, ${business.longitude})`);
-          return false;
-        }
-        
-        console.log(`✅ Negocio válido: ${business.name} (${lat}, ${lng})`);
-        return true;
-      });
-      
-      setBusinesses(businessesWithCoords);
-      console.log(`📍 ${businessesWithCoords.length} negocios con coordenadas válidas`);
+      // ✅ PROCESAR DATOS
+      const processedBusinesses = processBusinessData(businessResponse);
+      setBusinesses(processedBusinesses);
+      console.log(`📍 ${processedBusinesses.length} negocios con coordenadas válidas`);
       
       // Centrar mapa en el primer negocio si existe
-      if (businessesWithCoords.length > 0) {
-        const firstBusiness = businessesWithCoords[0];
+      if (processedBusinesses.length > 0) {
+        const firstBusiness = processedBusinesses[0];
         const newCenter = {
           lat: parseFloat(firstBusiness.latitude),
           lng: parseFloat(firstBusiness.longitude)
         };
         setCenter(newCenter);
-        console.log(`🎯 Centrando mapa en: ${firstBusiness.name}`, newCenter);
+        console.log(`🎯 Centrando mapa en: ${firstBusiness.business_name || firstBusiness.name}`, newCenter);
       } else {
         console.log('⚠️ No hay negocios con coordenadas válidas, usando centro por defecto');
       }
 
-      // Cargar tipos de negocio
+      // ✅ CARGAR TIPOS DE NEGOCIO MEJORADO
       try {
+        // Método 1: API
         const typesResponse = await businessAPI.getTypes();
-        if (typesResponse && typesResponse.data && typesResponse.data.success) {
-          setBusinessTypes(typesResponse.data.data || []);
-          console.log(`🏷️ ${typesResponse.data.data?.length || 0} tipos cargados`);
+        if (typesResponse?.data?.success && Array.isArray(typesResponse.data.data)) {
+          const apiTypes = typesResponse.data.data.map(type => 
+            typeof type === 'string' ? type : type.value || type.label || type.name
+          ).filter(Boolean);
+          setBusinessTypes(apiTypes);
+          console.log(`🏷️ ${apiTypes.length} tipos cargados desde API`);
+        } else {
+          throw new Error('Tipos desde API no válidos');
         }
       } catch (typesError) {
-        console.warn('⚠️ No se pudieron cargar tipos de negocio:', typesError);
-        // Extraer tipos únicos de los negocios cargados
-        const uniqueTypes = [...new Set(businessesWithCoords.map(b => b.business_type))].filter(Boolean);
+        console.warn('⚠️ No se pudieron cargar tipos desde API:', typesError.message);
+        // Método 2: Extraer desde negocios
+        const uniqueTypes = [...new Set(
+          processedBusinesses
+            .map(b => b.business_type)
+            .filter(Boolean)
+        )].sort();
         setBusinessTypes(uniqueTypes);
-        console.log(`🏷️ ${uniqueTypes.length} tipos extraídos de negocios`);
+        console.log(`🏷️ ${uniqueTypes.length} tipos extraídos de negocios:`, uniqueTypes);
       }
 
     } catch (error) {
       console.error('❌ Error cargando datos del mapa:', error);
       const errorMessage = error.message || 'Error desconocido';
       setError(`Error cargando datos: ${errorMessage}`);
+      
+      // Intentar mostrar algunos datos de debug
+      console.log('🔍 Debug info:', {
+        hostname: window.location.hostname,
+        pathname: window.location.pathname,
+        isDev: import.meta.env.DEV,
+        isProd: import.meta.env.PROD,
+        apiUrl: import.meta.env.VITE_API_URL
+      });
     } finally {
       setLoading(false);
     }
@@ -241,7 +290,8 @@ const GoogleMapComponent = () => {
   }, []);
 
   const onMarkerClick = (business) => {
-    console.log('🖱️ Click en marcador:', business.name);
+    const businessName = business.business_name || business.name;
+    console.log('🖱️ Click en marcador:', businessName);
     setSelectedBusiness(business);
     const position = {
       lat: parseFloat(business.latitude),
@@ -254,30 +304,40 @@ const GoogleMapComponent = () => {
     }
   };
 
+  // ✅ FUNCIÓN MEJORADA PARA ICONOS
   const getMarkerIcon = (businessType) => {
     const icons = {
-      'restaurante': '🍽️',
+      'restaurant': '🍽️',
       'tienda': '🛍️',
+      'store': '🏪',
+      'pharmacy': '💊',
       'farmacia': '💊',
+      'bank': '🏦',
       'banco': '🏦',
       'hospital': '🏥',
+      'clinic': '🏥',
       'hotel': '🏨',
-      'gasolinera': '⛽',
-      'supermercado': '🛒',
+      'gas_station': '⛽',
+      'grifo': '⛽',
+      'market': '🛒',
+      'mercado': '🛒',
       'cafe': '☕',
       'gym': '💪',
-      'peluqueria': '💇',
+      'salon': '💇',
+      'workshop': '🔧',
       'taller': '🔧',
-      'libreria': '📚',
-      'panaderia': '🥖'
+      'bakery': '🥖',
+      'panaderia': '🥖',
+      'office': '🏢',
+      'oficina': '🏢'
     };
     
-    const lowerType = businessType?.toLowerCase() || '';
+    const lowerType = (businessType || '').toLowerCase();
     let icon = '📍'; // Default icon
     
-    // Buscar coincidencias en el tipo de negocio
+    // Buscar coincidencias más flexibles
     for (const [key, emoji] of Object.entries(icons)) {
-      if (lowerType.includes(key)) {
+      if (lowerType.includes(key) || key.includes(lowerType)) {
         icon = emoji;
         break;
       }
@@ -360,7 +420,7 @@ const GoogleMapComponent = () => {
                   borderRadius: '5px',
                   textAlign: 'left'
                 }}>
-                  <strong>{business.name}</strong><br/>
+                  <strong>{business.business_name || business.name}</strong><br/>
                   <small>{business.business_type} - {business.address}</small><br/>
                   <small>Coords: {business.latitude}, {business.longitude}</small>
                 </div>
@@ -464,7 +524,7 @@ const GoogleMapComponent = () => {
                 const lng = parseFloat(business.longitude);
                 
                 if (isNaN(lat) || isNaN(lng)) {
-                  console.warn(`Coordenadas inválidas para ${business.name}:`, business.latitude, business.longitude);
+                  console.warn(`Coordenadas inválidas para ${business.business_name || business.name}:`, business.latitude, business.longitude);
                   return null;
                 }
                 
@@ -474,7 +534,7 @@ const GoogleMapComponent = () => {
                     position={{ lat, lng }}
                     icon={getMarkerIcon(business.business_type)}
                     onClick={() => onMarkerClick(business)}
-                    title={`${business.name} - ${business.business_type}`}
+                    title={`${business.business_name || business.name} - ${business.business_type}`}
                   />
                 );
               })}
@@ -489,7 +549,7 @@ const GoogleMapComponent = () => {
                   onCloseClick={() => setSelectedBusiness(null)}
                 >
                   <div className="info-window">
-                    <h4>{selectedBusiness.name}</h4>
+                    <h4>{selectedBusiness.business_name || selectedBusiness.name}</h4>
                     <p><strong>Tipo:</strong> {selectedBusiness.business_type}</p>
                     <p><strong>Dirección:</strong> {selectedBusiness.address}</p>
                     
