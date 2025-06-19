@@ -2,15 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { businessAPI } from '../../services/api';
-// ✅ IMPORTACIÓN CORREGIDA
 import { RecentBusinessesSection } from '../BusinessTable/BusinessTable';
 import Navbar from '../Navbar/Navbar';
-import './Dashborad.css';
+import './Dashboard.css'; // ✅ CORREGIDO: era 'Dashborad.css'
 
 const Dashboard = () => {
   const { user, logout, isAdmin } = useAuth();
-  // ✅ ELIMINAR estos estados ya que RecentBusinessesSection maneja sus propios datos
-  // const [businesses, setBusinesses] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -26,7 +23,6 @@ const Dashboard = () => {
       setError('');
       console.log('📊 Cargando datos del dashboard...');
 
-      // ✅ SOLO cargar estadísticas, no negocios (RecentBusinessesSection se encarga)
       const statsResponse = await businessAPI.getStats();
 
       if (statsResponse.success) {
@@ -47,6 +43,35 @@ const Dashboard = () => {
     if (window.confirm('¿Estás seguro que quieres cerrar sesión?')) {
       logout();
     }
+  };
+
+  // ✅ HELPER FUNCTION MOVIDA FUERA DEL COMPONENTE
+  const getTypeIcon = (type) => {
+    const icons = {
+      'restaurante': '🍽️',
+      'tienda': '🛍️',
+      'farmacia': '💊',
+      'banco': '🏦',
+      'hospital': '🏥',
+      'escuela': '🏫',
+      'hotel': '🏨',
+      'gasolinera': '⛽',
+      'supermercado': '🛒',
+      'cafe': '☕',
+      'gym': '💪',
+      'peluqueria': '💇',
+      'taller': '🔧',
+      'libreria': '📚',
+      'panaderia': '🥖'
+    };
+    
+    const lowerType = type.toLowerCase();
+    for (const [key, icon] of Object.entries(icons)) {
+      if (lowerType.includes(key)) {
+        return icon;
+      }
+    }
+    return '🏢';
   };
 
   if (loading) {
@@ -71,7 +96,7 @@ const Dashboard = () => {
         {/* Header */}
         <div className="dashboard-header">
           <div className="welcome-section">
-            <h1>¡Bienvenido, Administrador del Sistema!</h1>
+            <h1>¡Bienvenido{user?.username ? `, ${user.username}` : ''}!</h1>
             <p>Panel de control de Business Map</p>
           </div>
         </div>
@@ -100,21 +125,8 @@ const Dashboard = () => {
               </div>
               <div className="stat-trend">
                 {stats.recent > 0 && (
-                  <span className="trend-positive">+{stats.recent} esta semana</span>
+                  <span className="trend-positive">+{stats.recent} recientes</span>
                 )}
-              </div>
-            </div>
-            
-            <div className="stat-card">
-              <div className="stat-icon">📍</div>
-              <div className="stat-content">
-                <h3>{stats.withCoordinates || 0}</h3>
-                <p>Con Ubicación</p>
-              </div>
-              <div className="stat-trend">
-                <span className="trend-neutral">
-                  {stats.withoutCoordinates || 0} sin ubicar
-                </span>
               </div>
             </div>
             
@@ -133,7 +145,7 @@ const Dashboard = () => {
               <div className="stat-icon">🆕</div>
               <div className="stat-content">
                 <h3>{stats.recent || 0}</h3>
-                <p>Recientes (7 días)</p>
+                <p>Recientes</p>
               </div>
               <div className="stat-trend">
                 {stats.recent > 0 ? (
@@ -143,10 +155,26 @@ const Dashboard = () => {
                 )}
               </div>
             </div>
+
+            {/* ✅ NUEVA CARD PARA SERVICIOS */}
+            <div className="stat-card">
+              <div className="stat-icon">📋</div>
+              <div className="stat-content">
+                <h3>{stats.servicesStatus?.withIssues || 0}</h3>
+                <p>Con Servicios Vencidos</p>
+              </div>
+              <div className="stat-trend">
+                {stats.servicesStatus?.withIssues > 0 ? (
+                  <span className="trend-negative">⚠️ Requieren atención</span>
+                ) : (
+                  <span className="trend-positive">✅ Todo al día</span>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
-        {/* ✅ SECCIÓN DE NEGOCIOS RECIENTES CORREGIDA */}
+        {/* Recent Businesses Section */}
         <RecentBusinessesSection />
 
         {/* Business Types Overview */}
@@ -159,9 +187,9 @@ const Dashboard = () => {
               {stats.byType.slice(0, 8).map((type, index) => (
                 <div key={index} className="type-card">
                   <div className="type-icon">
-                    {getTypeIcon(type.business_type)}
+                    {getTypeIcon(type.type)}
                   </div>
-                  <h4>{type.business_type}</h4>
+                  <h4>{type.type}</h4>
                   <p>{type.count} negocio{type.count !== 1 ? 's' : ''}</p>
                 </div>
               ))}
@@ -185,13 +213,6 @@ const Dashboard = () => {
               <span className="admin-badge">🔐 Solo Administrador</span>
             </div>
             <div className="admin-links-grid">
-              <Link to="/admin/password-reset" className="admin-link-card">
-                <span className="icon">🔑</span>
-                <h3>Gestión de Contraseñas</h3>
-                <p>Administrar y resetear contraseñas de usuarios</p>
-                <div className="card-status active">Activo</div>
-              </Link>
-              
               <Link to="/users" className="admin-link-card">
                 <span className="icon">👥</span>
                 <h3>Gestión de Usuarios</h3>
@@ -232,35 +253,6 @@ const Dashboard = () => {
       </div>
     </div>
   );
-};
-
-// Helper function para iconos de tipos de negocio
-const getTypeIcon = (type) => {
-  const icons = {
-    'restaurante': '🍽️',
-    'tienda': '🛍️',
-    'farmacia': '💊',
-    'banco': '🏦',
-    'hospital': '🏥',
-    'escuela': '🏫',
-    'hotel': '🏨',
-    'gasolinera': '⛽',
-    'supermercado': '🛒',
-    'cafe': '☕',
-    'gym': '💪',
-    'peluqueria': '💇',
-    'taller': '🔧',
-    'libreria': '📚',
-    'panaderia': '🥖'
-  };
-  
-  const lowerType = type.toLowerCase();
-  for (const [key, icon] of Object.entries(icons)) {
-    if (lowerType.includes(key)) {
-      return icon;
-    }
-  }
-  return '🏢'; // Default icon
 };
 
 export default Dashboard;
