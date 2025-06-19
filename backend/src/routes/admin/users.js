@@ -1,14 +1,66 @@
 const express = require('express');
-const bcrypt = require('bcryptjs'); // ← CAMBIO: bcrypt por bcryptjs
+const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize');
-const User = require('../../models/User');
-const { auth, adminAuth } = require('../../middleware/auth');
-const { validateUserPermissions } = require('../../middleware/permissions');
 
 const router = express.Router();
 
-// Middleware: Solo administradores pueden acceder a estas rutas
-router.use(adminAuth);
+// ✅ IMPORTACIONES SEGURAS
+let User, auth, adminAuth;
+
+try {
+  User = require('../../models/User');
+  console.log('✅ Modelo User importado en admin/users routes');
+} catch (error) {
+  console.error('❌ Error importando User en admin/users routes:', error.message);
+  User = null;
+}
+
+try {
+  const authMiddleware = require('../../middleware/auth');
+  auth = authMiddleware.auth;
+  adminAuth = authMiddleware.adminAuth;
+  console.log('✅ Middleware auth importado en admin/users routes');
+} catch (error) {
+  console.error('❌ Error importando middleware auth en admin/users routes:', error.message);
+  // Middleware de fallback para desarrollo
+  auth = (req, res, next) => {
+    req.user = { id: 1, role: 'admin', username: 'admin' };
+    next();
+  };
+  adminAuth = (req, res, next) => next();
+}
+
+// ✅ MIDDLEWARE DE VERIFICACIÓN DE MODELOS
+const checkModels = (req, res, next) => {
+  if (!User) {
+    return res.status(503).json({
+      success: false,
+      message: 'Servicio de usuarios no disponible',
+      error: 'USER_MODEL_NOT_AVAILABLE'
+    });
+  }
+  next();
+};
+
+// ✅ ORDEN CORRECTO DE MIDDLEWARES
+router.use(auth);        // Primero verificar autenticación
+router.use(adminAuth);   // Luego verificar que sea admin
+router.use(checkModels); // Finalmente verificar modelos
+
+// ✅ RUTA DE PRUEBA
+router.get('/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Rutas de administración de usuarios funcionando correctamente',
+    user: req.user ? {
+      id: req.user.id,
+      username: req.user.username,
+      role: req.user.role
+    } : null,
+    timestamp: new Date().toISOString(),
+    modelAvailable: !!User
+  });
+});
 
 // ===============================================
 // RUTAS ESPECÍFICAS PRIMERO (ANTES DE /:id)
@@ -17,6 +69,8 @@ router.use(adminAuth);
 // GET /api/admin/users/stats/summary - Estadísticas de usuarios
 router.get('/stats/summary', async (req, res) => {
   try {
+    console.log('📊 Obteniendo estadísticas de usuarios...');
+    
     const totalUsers = await User.count();
     const activeUsers = await User.count({ where: { is_active: true } });
     const adminUsers = await User.count({ where: { role: 'admin' } });
@@ -38,6 +92,8 @@ router.get('/stats/summary', async (req, res) => {
       }
     });
 
+    console.log(`✅ Estadísticas calculadas: ${totalUsers} usuarios totales`);
+
     res.json({
       success: true,
       data: {
@@ -52,7 +108,7 @@ router.get('/stats/summary', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error obteniendo estadísticas:', error);
+    console.error('❌ Error obteniendo estadísticas:', error);
     res.status(500).json({
       success: false,
       message: 'Error interno del servidor',
@@ -68,6 +124,8 @@ router.get('/stats/summary', async (req, res) => {
 // GET /api/admin/users - Obtener todos los usuarios
 router.get('/', async (req, res) => {
   try {
+    console.log('👥 Obteniendo lista de usuarios...');
+    
     const { 
       page = 1, 
       limit = 50, 
@@ -107,7 +165,7 @@ router.get('/', async (req, res) => {
     const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
     const offset = (pageNum - 1) * limitNum;
 
-    // Obtener usuarios con permisos
+    // Obtener usuarios
     const { count, rows: users } = await User.findAndCountAll({
       where,
       attributes: [
@@ -119,24 +177,22 @@ router.get('/', async (req, res) => {
       offset: offset
     });
 
-    // Para cada usuario, obtener sus permisos
-    const usersWithPermissions = await Promise.all(
-      users.map(async (user) => {
-        const userObj = user.toJSON();
-        
-        if (user.role === 'admin') {
-          // Los administradores tienen todos los permisos
-          userObj.permissions = ['ALL'];
-          userObj.permissions_count = 'ALL';
-        } else {
-          // Para usuarios normales, simular permisos básicos
-          userObj.permissions = ['user:read', 'business:read'];
-          userObj.permissions_count = 2;
-        }
-        
-        return userObj;
-      })
-    );
+    // Para cada usuario, agregar información de permisos
+    const usersWithPermissions = users.map(user => {
+      const userObj = user.toJSON();
+      
+      if (user.role === 'admin') {
+        userObj.permissions = ['ALL'];
+        userObj.permissions_count = 'ALL';
+      } else {
+        userObj.permissions = ['user:read', 'business:read'];
+        userObj.permissions_count = 2;
+      }
+      
+      return userObj;
+    });
+
+    console.log(`✅ ${users.length} usuarios obtenidos de ${count} totales`);
 
     res.json({
       success: true,
@@ -159,11 +215,12 @@ router.get('/', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error obteniendo usuarios:', error);
+    console.error('❌ Error obteniendo usuarios:', error);
     res.status(500).json({
       success: false,
       message: 'Error interno del servidor',
-      error: 'INTERNAL_ERROR'
+      error: 'INTERNAL_ERROR',
+      details: error.message
     });
   }
 });
@@ -215,7 +272,7 @@ router.get('/:id', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error obteniendo usuario:', error);
+    console.error('❌ Error obteniendo usuario:', error);
     res.status(500).json({
       success: false,
       message: 'Error interno del servidor',
@@ -227,6 +284,8 @@ router.get('/:id', async (req, res) => {
 // POST /api/admin/users - Crear nuevo usuario
 router.post('/', async (req, res) => {
   try {
+    console.log('➕ Creando nuevo usuario...');
+    
     const { 
       username, 
       email, 
@@ -302,13 +361,15 @@ router.post('/', async (req, res) => {
       is_active
     });
 
-    // Obtener el usuario creado
+    // Obtener el usuario creado (sin password)
     const createdUser = await User.findByPk(newUser.id, {
       attributes: [
         'id', 'username', 'email', 'full_name', 'role', 
         'is_active', 'created_at'
       ]
     });
+
+    console.log(`✅ Usuario creado: ${username} (ID: ${newUser.id})`);
 
     res.status(201).json({
       success: true,
@@ -317,7 +378,7 @@ router.post('/', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error creando usuario:', error);
+    console.error('❌ Error creando usuario:', error);
     
     if (error.name === 'SequelizeValidationError') {
       return res.status(400).json({
@@ -381,7 +442,6 @@ router.put('/:id', async (req, res) => {
 
     // Validaciones de seguridad
     if (parseInt(id) === req.user.id) {
-      // No permitir que el usuario se desactive a sí mismo
       if (is_active === false) {
         return res.status(400).json({
           success: false,
@@ -390,7 +450,6 @@ router.put('/:id', async (req, res) => {
         });
       }
       
-      // No permitir que el usuario cambie su propio rol
       if (role && role !== user.role) {
         return res.status(400).json({
           success: false,
@@ -434,6 +493,8 @@ router.put('/:id', async (req, res) => {
       ]
     });
 
+    console.log(`✅ Usuario actualizado: ${updatedUser.username} (ID: ${id})`);
+
     res.json({
       success: true,
       message: 'Usuario actualizado exitosamente',
@@ -441,7 +502,7 @@ router.put('/:id', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error actualizando usuario:', error);
+    console.error('❌ Error actualizando usuario:', error);
     
     if (error.name === 'SequelizeValidationError') {
       return res.status(400).json({
@@ -522,8 +583,12 @@ router.delete('/:id', async (req, res) => {
       }
     }
 
+    const username = user.username;
+    
     // Eliminar usuario
     await user.destroy();
+
+    console.log(`✅ Usuario eliminado: ${username} (ID: ${id})`);
 
     res.json({
       success: true,
@@ -531,7 +596,7 @@ router.delete('/:id', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error eliminando usuario:', error);
+    console.error('❌ Error eliminando usuario:', error);
     res.status(500).json({
       success: false,
       message: 'Error interno del servidor',

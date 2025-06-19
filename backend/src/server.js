@@ -152,7 +152,7 @@ const startServer = async () => {
 loadRoutes('./routes/auth', '/api/auth', 'rutas de autenticación');
 loadRoutes('./routes/users', '/api/users', 'rutas de usuarios');
 loadRoutes('./routes/businesses', '/api/businesses', 'rutas de negocios');
-loadRoutes('./routes/admin/users', '/api/admin/users', 'rutas de administración');
+loadRoutes('./routes/admin/users', '/api/admin/users', 'rutas de administración de usuarios');
     
     // ===============================================
     // ARCHIVOS ESTÁTICOS Y SPA FALLBACK
