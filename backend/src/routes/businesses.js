@@ -77,11 +77,11 @@ router.get('/types/list', checkModels, async (req, res) => {
   }
 });
 
-// GET /api/businesses/stats/summary - Estadísticas generales (VERSIÓN ROBUSTA)
+// GET /api/businesses/stats/summary - Estadísticas generales (VERSIÓN CORREGIDA)
 router.get('/stats/summary', checkModels, async (req, res) => {
   try {
-    console.log('📊 Obteniendo estadísticas del dashboard...');
-
+    console.log('📊 Obteniendo estadísticas generales...');
+    
     // Estadísticas básicas que siempre funcionan
     const basicStats = {
       total: 0,
@@ -90,11 +90,8 @@ router.get('/stats/summary', checkModels, async (req, res) => {
       recent: 0,
       byType: [],
       byDistrict: [],
-      servicesStatus: {
-        total: 0,
-        withIssues: 0,
-        ok: 0
-      }
+      withCoordinates: 0,
+      withoutCoordinates: 0
     };
 
     try {
@@ -102,7 +99,7 @@ router.get('/stats/summary', checkModels, async (req, res) => {
       basicStats.total = await Business.count();
       console.log(`✅ Total de negocios: ${basicStats.total}`);
 
-      // Intentar contar activos (si el campo existe)
+      // ✅ NO intentar contar por is_active si no existe
       try {
         basicStats.active = await Business.count({ 
           where: { is_active: true } 
@@ -129,86 +126,48 @@ router.get('/stats/summary', checkModels, async (req, res) => {
         basicStats.recent = 0;
       }
 
-      // Estadísticas por tipo (si el campo existe)
-      try {
-        const businessesByType = await Business.findAll({
-          attributes: [
-            'business_type',
-            [sequelize.fn('COUNT', sequelize.col('id')), 'count']
-          ],
-          group: ['business_type'],
-          raw: true
-        });
-        
-        basicStats.byType = businessesByType.map(item => ({
-          type: item.business_type || 'Sin tipo',
-          count: parseInt(item.count) || 0
-        }));
-        console.log(`✅ Tipos de negocio: ${basicStats.byType.length}`);
-      } catch (typeError) {
-        console.warn('⚠️ Campo business_type no existe o error:', typeError.message);
-        basicStats.byType = [{ type: 'Todos', count: basicStats.total }];
-      }
+      // ✅ OBTENER TODOS LOS NEGOCIOS PARA PROCESAR MANUALMENTE
+      const allBusinesses = await Business.findAll({
+        attributes: ['id', 'business_name', 'business_type', 'distrito', 'sector', 'anexo', 'latitude', 'longitude', 'created_at'],
+        raw: true
+      });
 
-      // Estadísticas por distrito (si el campo existe)
-      try {
-        const businessesByDistrict = await Business.findAll({
-          attributes: [
-            'district',
-            [sequelize.fn('COUNT', sequelize.col('id')), 'count']
-          ],
-          group: ['district'],
-          raw: true,
-          limit: 10 // Solo top 10
-        });
-        
-        basicStats.byDistrict = businessesByDistrict.map(item => ({
-          district: item.district || 'Sin distrito',
-          count: parseInt(item.count) || 0
-        }));
-        console.log(`✅ Distritos: ${basicStats.byDistrict.length}`);
-      } catch (districtError) {
-        console.warn('⚠️ Campo district no existe o error:', districtError.message);
-        basicStats.byDistrict = [];
-      }
+      // Estadísticas por tipo
+      const typeStats = {};
+      allBusinesses.forEach(business => {
+        const type = business.business_type || 'Sin categoría';
+        typeStats[type] = (typeStats[type] || 0) + 1;
+      });
+      
+      basicStats.byType = Object.entries(typeStats).map(([type, count]) => ({
+        business_type: type,
+        count
+      })).sort((a, b) => b.count - a.count);
+      
+      console.log(`✅ ${basicStats.byType.length} tipos de negocio`);
 
-      // Estadísticas de servicios (si los campos existen)
-      try {
-        const today = new Date();
-        const serviceFields = [
-          'defensa_civil_expiry', 
-          'extintores_expiry', 
-          'fumigacion_expiry', 
-          'pozo_tierra_expiry', 
-          'publicidad_expiry'
-        ];
+      // ✅ ESTADÍSTICAS POR DISTRITO (usando campo correcto 'distrito')
+      const districtStats = {};
+      allBusinesses.forEach(business => {
+        const district = business.distrito || 'Sin distrito';
+        districtStats[district] = (districtStats[district] || 0) + 1;
+      });
+      
+      basicStats.byDistrict = Object.entries(districtStats).map(([district, count]) => ({
+        district,
+        count
+      })).sort((a, b) => b.count - a.count);
+      
+      console.log(`✅ ${basicStats.byDistrict.length} distritos`);
 
-        let businessesWithIssues = 0;
-        for (const field of serviceFields) {
-          try {
-            const count = await Business.count({
-              where: { [field]: { [Op.lt]: today } }
-            });
-            businessesWithIssues += count;
-          } catch (fieldError) {
-            // Campo no existe, continuar
-          }
-        }
-
-        basicStats.servicesStatus = {
-          total: basicStats.total,
-          withIssues: businessesWithIssues,
-          ok: basicStats.total - businessesWithIssues
-        };
-        console.log(`✅ Servicios - Con problemas: ${businessesWithIssues}`);
-      } catch (servicesError) {
-        console.warn('⚠️ No se pudieron calcular estadísticas de servicios:', servicesError.message);
-        basicStats.servicesStatus = {
-          total: basicStats.total,
-          withIssues: 0,
-          ok: basicStats.total
-        };
-      }
+      // Coordenadas
+      basicStats.withCoordinates = allBusinesses.filter(b => 
+        b.latitude && b.longitude && 
+        parseFloat(b.latitude) !== 0 && parseFloat(b.longitude) !== 0
+      ).length;
+      basicStats.withoutCoordinates = basicStats.total - basicStats.withCoordinates;
+      
+      console.log(`✅ Coordenadas - Con: ${basicStats.withCoordinates}, Sin: ${basicStats.withoutCoordinates}`);
 
     } catch (queryError) {
       console.error('❌ Error en consultas de estadísticas:', queryError);
@@ -237,11 +196,8 @@ router.get('/stats/summary', checkModels, async (req, res) => {
         recent: 0,
         byType: [],
         byDistrict: [],
-        servicesStatus: {
-          total: 0,
-          withIssues: 0,
-          ok: 0
-        }
+        withCoordinates: 0,
+        withoutCoordinates: 0
       },
       error: 'Estadísticas no disponibles temporalmente',
       timestamp: new Date().toISOString()
@@ -347,7 +303,7 @@ router.get('/', checkModels, async (req, res) => {
       limit = 50, 
       search, 
       type,
-      district,
+      distrito,
       sector,
       sortBy = 'created_at', 
       sortOrder = 'DESC' 
@@ -368,8 +324,9 @@ router.get('/', checkModels, async (req, res) => {
       where.business_type = type;
     }
 
-    if (district && district !== 'all') {
-      where.district = district;
+    // ✅ USAR CAMPO CORRECTO 'distrito'
+    if (distrito && distrito !== 'all') {
+      where.distrito = distrito;
     }
 
     if (sector && sector !== 'all') {

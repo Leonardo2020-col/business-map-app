@@ -123,7 +123,9 @@ const SystemReports = () => {
     const districts = {};
     
     businesses.forEach(business => {
-      const district = business.district || 'Sin distrito';
+      // ✅ USAR EL CAMPO CORRECTO 'distrito' de la BD
+      const district = business.distrito || business.district || 'Sin distrito';
+      
       if (!districts[district]) {
         districts[district] = {
           district,
@@ -437,6 +439,7 @@ const SystemReports = () => {
                       <th>Nombre</th>
                       <th>Tipo</th>
                       <th>Distrito</th>
+                      <th>Sector</th>
                       <th>Coordenadas</th>
                       <th>Creado por</th>
                       <th>Fecha</th>
@@ -447,7 +450,8 @@ const SystemReports = () => {
                       <tr key={business.id}>
                         <td>{business.business_name || business.name}</td>
                         <td>{business.business_type || 'N/A'}</td>
-                        <td>{business.district || 'N/A'}</td>
+                        <td>{business.distrito || 'N/A'}</td>
+                        <td>{business.sector || 'N/A'}</td>
                         <td>
                           {business.latitude && business.longitude ? '✅' : '❌'}
                         </td>
