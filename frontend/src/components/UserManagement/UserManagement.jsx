@@ -1,6 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import './UserManagement.css';
+
+// ✅ CONSTANTES EXTRAÍDAS
+const AVAILABLE_PERMISSIONS = {
+  'businesses_view': '👁️ Ver negocios',
+  'businesses_create': '➕ Crear negocios',
+  'businesses_edit': '✏️ Editar negocios',
+  'businesses_delete': '🗑️ Eliminar negocios',
+  'users_view': '👥 Ver usuarios',
+  'users_create': '👤 Crear usuarios',
+  'users_edit': '✏️ Editar usuarios',
+  'users_delete': '❌ Eliminar usuarios',
+  'admin_panel': '⚙️ Panel de admin',
+  'reports_view': '📊 Ver reportes',
+  'map_view': '🗺️ Ver mapa'
+};
+
+const INITIAL_FORM_DATA = {
+  username: '',
+  email: '',
+  full_name: '',
+  password: '',
+  role: 'user',
+  is_active: true
+};
 
 const UserManagement = () => {
   const { user: currentUser } = useAuth();
@@ -12,7 +36,6 @@ const UserManagement = () => {
   // Estados para modales
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showPermissionsModal, setShowPermissionsModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   
   // Estados para filtros
@@ -21,38 +44,40 @@ const UserManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   
   // Estados para formularios
-  const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    full_name: '',
-    password: '',
-    role: 'user',
-    is_active: true
-  });
-  
-  // Definición de permisos disponibles
-  const AVAILABLE_PERMISSIONS = {
-    'businesses_view': '👁️ Ver negocios',
-    'businesses_create': '➕ Crear negocios',
-    'businesses_edit': '✏️ Editar negocios',
-    'businesses_delete': '🗑️ Eliminar negocios',
-    'users_view': '👥 Ver usuarios',
-    'users_create': '👤 Crear usuarios',
-    'users_edit': '✏️ Editar usuarios',
-    'users_delete': '❌ Eliminar usuarios',
-    'admin_panel': '⚙️ Panel de admin',
-    'reports_view': '📊 Ver reportes',
-    'map_view': '🗺️ Ver mapa'
-  };
-
+  const [formData, setFormData] = useState(INITIAL_FORM_DATA);
   const [userPermissions, setUserPermissions] = useState({});
+
+  // ✅ MEMOIZACIÓN DE USUARIOS FILTRADOS
+  const filteredUsers = useMemo(() => {
+    return users.filter(user => {
+      const matchesRole = filterRole === 'all' || user.role === filterRole;
+      const matchesStatus = filterStatus === 'all' || 
+        (filterStatus === 'active' && user.is_active) ||
+        (filterStatus === 'inactive' && !user.is_active);
+      const matchesSearch = !searchTerm || 
+        user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (user.full_name && user.full_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      return matchesRole && matchesStatus && matchesSearch;
+    });
+  }, [users, filterRole, filterStatus, searchTerm]);
+
+  // ✅ ESTADÍSTICAS MEMOIZADAS
+  const userStats = useMemo(() => ({
+    total: users.length,
+    active: users.filter(u => u.is_active).length,
+    admins: users.filter(u => u.role === 'admin').length,
+    displayed: filteredUsers.length
+  }), [users, filteredUsers]);
 
   // Cargar usuarios al montar el componente
   useEffect(() => {
     loadUsers();
   }, []);
 
-  const loadUsers = async () => {
+  // ✅ FUNCIONES OPTIMIZADAS CON useCallback
+  const loadUsers = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
@@ -77,29 +102,22 @@ const UserManagement = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleInputChange = (e) => {
+  const handleInputChange = useCallback((e) => {
     const { name, value, type, checked } = e.target;
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
-  };
+  }, []);
 
-  const resetForm = () => {
-    setFormData({
-      username: '',
-      email: '',
-      full_name: '',
-      password: '',
-      role: 'user',
-      is_active: true
-    });
+  const resetForm = useCallback(() => {
+    setFormData(INITIAL_FORM_DATA);
     setUserPermissions({});
-  };
+  }, []);
 
-  const handleCreateUser = async (e) => {
+  const handleCreateUser = useCallback(async (e) => {
     e.preventDefault();
     
     try {
@@ -133,9 +151,9 @@ const UserManagement = () => {
     } catch (err) {
       setError(`❌ ${err.message}`);
     }
-  };
+  }, [formData, userPermissions, resetForm, loadUsers]);
 
-  const handleEditUser = async (e) => {
+  const handleEditUser = useCallback(async (e) => {
     e.preventDefault();
     
     try {
@@ -175,9 +193,9 @@ const UserManagement = () => {
     } catch (err) {
       setError(`❌ ${err.message}`);
     }
-  };
+  }, [formData, userPermissions, selectedUser, resetForm, loadUsers]);
 
-  const handleDeleteUser = async (userId, username) => {
+  const handleDeleteUser = useCallback(async (userId, username) => {
     if (!window.confirm(`¿Estás seguro de que quieres eliminar al usuario "${username}"?`)) {
       return;
     }
@@ -205,9 +223,9 @@ const UserManagement = () => {
     } catch (err) {
       setError(`❌ ${err.message}`);
     }
-  };
+  }, [loadUsers]);
 
-  const openEditModal = (user) => {
+  const openEditModal = useCallback((user) => {
     setSelectedUser(user);
     setFormData({
       username: user.username,
@@ -228,35 +246,22 @@ const UserManagement = () => {
     setUserPermissions(currentPermissions);
     
     setShowEditModal(true);
-  };
+  }, []);
 
-  const openCreateModal = () => {
+  const openCreateModal = useCallback(() => {
     resetForm();
     setShowCreateModal(true);
-  };
+  }, [resetForm]);
 
-  const handlePermissionChange = (permission) => {
+  const handlePermissionChange = useCallback((permission) => {
     setUserPermissions(prev => ({
       ...prev,
       [permission]: !prev[permission]
     }));
-  };
+  }, []);
 
-  // Filtrar usuarios
-  const filteredUsers = users.filter(user => {
-    const matchesRole = filterRole === 'all' || user.role === filterRole;
-    const matchesStatus = filterStatus === 'all' || 
-      (filterStatus === 'active' && user.is_active) ||
-      (filterStatus === 'inactive' && !user.is_active);
-    const matchesSearch = !searchTerm || 
-      user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (user.full_name && user.full_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    return matchesRole && matchesStatus && matchesSearch;
-  });
-
-  const formatLastLogin = (lastLogin) => {
+  // ✅ FUNCIÓN HELPER PARA FORMATEAR FECHA
+  const formatLastLogin = useCallback((lastLogin) => {
     if (!lastLogin) return 'Nunca';
     return new Date(lastLogin).toLocaleDateString('es-ES', {
       year: 'numeric',
@@ -265,7 +270,11 @@ const UserManagement = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
-  };
+  }, []);
+
+  // ✅ FUNCIONES HELPER PARA CERRAR MODALES
+  const closeCreateModal = useCallback(() => setShowCreateModal(false), []);
+  const closeEditModal = useCallback(() => setShowEditModal(false), []);
 
   if (loading) {
     return (
@@ -279,8 +288,10 @@ const UserManagement = () => {
   return (
     <div className="user-management">
       <div className="user-management-header">
-        <h1>👥 Gestión de Usuarios</h1>
-        <p>Administra usuarios y sus permisos en el sistema</p>
+        <div>
+          <h1>👥 Gestión de Usuarios</h1>
+          <p>Administra usuarios y sus permisos en el sistema</p>
+        </div>
         
         <div className="header-actions">
           <button 
@@ -350,28 +361,22 @@ const UserManagement = () => {
         </div>
       </div>
 
-      {/* Estadísticas */}
+      {/* ✅ ESTADÍSTICAS OPTIMIZADAS */}
       <div className="user-stats">
         <div className="stat-card">
-          <div className="stat-number">{users.length}</div>
+          <div className="stat-number">{userStats.total}</div>
           <div className="stat-label">Total Usuarios</div>
         </div>
         <div className="stat-card">
-          <div className="stat-number">
-            {users.filter(u => u.is_active).length}
-          </div>
+          <div className="stat-number">{userStats.active}</div>
           <div className="stat-label">Activos</div>
         </div>
         <div className="stat-card">
-          <div className="stat-number">
-            {users.filter(u => u.role === 'admin').length}
-          </div>
+          <div className="stat-number">{userStats.admins}</div>
           <div className="stat-label">Administradores</div>
         </div>
         <div className="stat-card">
-          <div className="stat-number">
-            {filteredUsers.length}
-          </div>
+          <div className="stat-number">{userStats.displayed}</div>
           <div className="stat-label">Mostrados</div>
         </div>
       </div>
@@ -463,296 +468,248 @@ const UserManagement = () => {
         )}
       </div>
 
-      {/* Modal para crear usuario */}
+      {/* ✅ MODALES EXTRAÍDOS A COMPONENTES SEPARADOS */}
       {showCreateModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h2>➕ Crear Nuevo Usuario</h2>
-              <button 
-                onClick={() => setShowCreateModal(false)}
-                className="modal-close"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateUser} className="user-form">
-              <div className="form-section">
-                <h3>📋 Información Básica</h3>
-                
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="username">👤 Nombre de Usuario:</label>
-                    <input
-                      type="text"
-                      id="username"
-                      name="username"
-                      value={formData.username}
-                      onChange={handleInputChange}
-                      placeholder="usuario123"
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="email">📧 Email:</label>
-                    <input
-                      type="email"
-                      id="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      placeholder="usuario@email.com"
-                    />
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="full_name">📝 Nombre Completo:</label>
-                  <input
-                    type="text"
-                    id="full_name"
-                    name="full_name"
-                    value={formData.full_name}
-                    onChange={handleInputChange}
-                    placeholder="Juan Pérez García"
-                  />
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="password">🔒 Contraseña:</label>
-                    <input
-                      type="password"
-                      id="password"
-                      name="password"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      placeholder="Mínimo 6 caracteres"
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="role">👑 Rol:</label>
-                    <select
-                      id="role"
-                      name="role"
-                      value={formData.role}
-                      onChange={handleInputChange}
-                    >
-                      <option value="user">👤 Usuario</option>
-                      <option value="admin">👑 Administrador</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      name="is_active"
-                      checked={formData.is_active}
-                      onChange={handleInputChange}
-                    />
-                    ✅ Usuario activo
-                  </label>
-                </div>
-              </div>
-
-              {/* Permisos específicos (solo para usuarios no admin) */}
-              {formData.role !== 'admin' && (
-                <div className="form-section">
-                  <h3>🔐 Permisos Específicos</h3>
-                  <p className="permissions-note">
-                    Los administradores tienen todos los permisos automáticamente
-                  </p>
-                  
-                  <div className="permissions-grid">
-                    {Object.entries(AVAILABLE_PERMISSIONS).map(([perm, label]) => (
-                      <label key={perm} className="permission-item">
-                        <input
-                          type="checkbox"
-                          checked={userPermissions[perm] || false}
-                          onChange={() => handlePermissionChange(perm)}
-                        />
-                        <span>{label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="modal-actions">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className="btn btn-secondary"
-                >
-                  ❌ Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                >
-                  ➕ Crear Usuario
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <CreateUserModal
+          formData={formData}
+          userPermissions={userPermissions}
+          availablePermissions={AVAILABLE_PERMISSIONS}
+          onInputChange={handleInputChange}
+          onPermissionChange={handlePermissionChange}
+          onSubmit={handleCreateUser}
+          onClose={closeCreateModal}
+        />
       )}
 
-      {/* Modal para editar usuario */}
       {showEditModal && selectedUser && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h2>✏️ Editar Usuario: {selectedUser.username}</h2>
-              <button 
-                onClick={() => setShowEditModal(false)}
-                className="modal-close"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleEditUser} className="user-form">
-              <div className="form-section">
-                <h3>📋 Información Básica</h3>
-                
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="edit_username">👤 Nombre de Usuario:</label>
-                    <input
-                      type="text"
-                      id="edit_username"
-                      name="username"
-                      value={formData.username}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="edit_email">📧 Email:</label>
-                    <input
-                      type="email"
-                      id="edit_email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      placeholder="usuario@email.com"
-                    />
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="edit_full_name">📝 Nombre Completo:</label>
-                  <input
-                    type="text"
-                    id="edit_full_name"
-                    name="full_name"
-                    value={formData.full_name}
-                    onChange={handleInputChange}
-                    placeholder="Juan Pérez García"
-                  />
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="edit_password">🔒 Nueva Contraseña:</label>
-                    <input
-                      type="password"
-                      id="edit_password"
-                      name="password"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      placeholder="Dejar vacío para mantener actual"
-                    />
-                    <small>Dejar vacío si no quieres cambiar la contraseña</small>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="edit_role">👑 Rol:</label>
-                    <select
-                      id="edit_role"
-                      name="role"
-                      value={formData.role}
-                      onChange={handleInputChange}
-                      disabled={selectedUser.id === currentUser.id}
-                    >
-                      <option value="user">👤 Usuario</option>
-                      <option value="admin">👑 Administrador</option>
-                    </select>
-                    {selectedUser.id === currentUser.id && (
-                      <small>No puedes cambiar tu propio rol</small>
-                    )}
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      name="is_active"
-                      checked={formData.is_active}
-                      onChange={handleInputChange}
-                      disabled={selectedUser.id === currentUser.id}
-                    />
-                    ✅ Usuario activo
-                    {selectedUser.id === currentUser.id && (
-                      <small>No puedes desactivarte a ti mismo</small>
-                    )}
-                  </label>
-                </div>
-              </div>
-
-              {/* Permisos específicos (solo para usuarios no admin) */}
-              {formData.role !== 'admin' && (
-                <div className="form-section">
-                  <h3>🔐 Permisos Específicos</h3>
-                  <p className="permissions-note">
-                    Los administradores tienen todos los permisos automáticamente
-                  </p>
-                  
-                  <div className="permissions-grid">
-                    {Object.entries(AVAILABLE_PERMISSIONS).map(([perm, label]) => (
-                      <label key={perm} className="permission-item">
-                        <input
-                          type="checkbox"
-                          checked={userPermissions[perm] || false}
-                          onChange={() => handlePermissionChange(perm)}
-                        />
-                        <span>{label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="modal-actions">
-                <button
-                  type="button"
-                  onClick={() => setShowEditModal(false)}
-                  className="btn btn-secondary"
-                >
-                  ❌ Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                >
-                  💾 Guardar Cambios
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <EditUserModal
+          selectedUser={selectedUser}
+          currentUser={currentUser}
+          formData={formData}
+          userPermissions={userPermissions}
+          availablePermissions={AVAILABLE_PERMISSIONS}
+          onInputChange={handleInputChange}
+          onPermissionChange={handlePermissionChange}
+          onSubmit={handleEditUser}
+          onClose={closeEditModal}
+        />
       )}
     </div>
   );
 };
+
+// ✅ COMPONENTE MODAL CREAR USUARIO
+const CreateUserModal = ({ 
+  formData, 
+  userPermissions, 
+  availablePermissions,
+  onInputChange, 
+  onPermissionChange, 
+  onSubmit, 
+  onClose 
+}) => (
+  <div className="modal-overlay">
+    <div className="modal-content">
+      <div className="modal-header">
+        <h2>➕ Crear Nuevo Usuario</h2>
+        <button onClick={onClose} className="modal-close">✕</button>
+      </div>
+
+      <form onSubmit={onSubmit} className="user-form">
+        <UserFormFields 
+          formData={formData}
+          onInputChange={onInputChange}
+          isEditing={false}
+        />
+
+        {formData.role !== 'admin' && (
+          <PermissionsSection
+            userPermissions={userPermissions}
+            availablePermissions={availablePermissions}
+            onPermissionChange={onPermissionChange}
+          />
+        )}
+
+        <div className="modal-actions">
+          <button type="button" onClick={onClose} className="btn btn-secondary">
+            ❌ Cancelar
+          </button>
+          <button type="submit" className="btn btn-primary">
+            ➕ Crear Usuario
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+);
+
+// ✅ COMPONENTE MODAL EDITAR USUARIO
+const EditUserModal = ({ 
+  selectedUser,
+  currentUser,
+  formData, 
+  userPermissions, 
+  availablePermissions,
+  onInputChange, 
+  onPermissionChange, 
+  onSubmit, 
+  onClose 
+}) => (
+  <div className="modal-overlay">
+    <div className="modal-content">
+      <div className="modal-header">
+        <h2>✏️ Editar Usuario: {selectedUser.username}</h2>
+        <button onClick={onClose} className="modal-close">✕</button>
+      </div>
+
+      <form onSubmit={onSubmit} className="user-form">
+        <UserFormFields 
+          formData={formData}
+          onInputChange={onInputChange}
+          isEditing={true}
+          selectedUser={selectedUser}
+          currentUser={currentUser}
+        />
+
+        {formData.role !== 'admin' && (
+          <PermissionsSection
+            userPermissions={userPermissions}
+            availablePermissions={availablePermissions}
+            onPermissionChange={onPermissionChange}
+          />
+        )}
+
+        <div className="modal-actions">
+          <button type="button" onClick={onClose} className="btn btn-secondary">
+            ❌ Cancelar
+          </button>
+          <button type="submit" className="btn btn-primary">
+            💾 Guardar Cambios
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+);
+
+// ✅ COMPONENTE CAMPOS DEL FORMULARIO
+const UserFormFields = ({ formData, onInputChange, isEditing, selectedUser, currentUser }) => (
+  <div className="form-section">
+    <h3>📋 Información Básica</h3>
+    
+    <div className="form-row">
+      <div className="form-group">
+        <label htmlFor={`${isEditing ? 'edit_' : ''}username`}>👤 Nombre de Usuario:</label>
+        <input
+          type="text"
+          id={`${isEditing ? 'edit_' : ''}username`}
+          name="username"
+          value={formData.username}
+          onChange={onInputChange}
+          placeholder="usuario123"
+          required
+        />
+      </div>
+
+      <div className="form-group">
+        <label htmlFor={`${isEditing ? 'edit_' : ''}email`}>📧 Email:</label>
+        <input
+          type="email"
+          id={`${isEditing ? 'edit_' : ''}email`}
+          name="email"
+          value={formData.email}
+          onChange={onInputChange}
+          placeholder="usuario@email.com"
+        />
+      </div>
+    </div>
+
+    <div className="form-group">
+      <label htmlFor={`${isEditing ? 'edit_' : ''}full_name`}>📝 Nombre Completo:</label>
+      <input
+        type="text"
+        id={`${isEditing ? 'edit_' : ''}full_name`}
+        name="full_name"
+        value={formData.full_name}
+        onChange={onInputChange}
+        placeholder="Juan Pérez García"
+      />
+    </div>
+
+    <div className="form-row">
+      <div className="form-group">
+        <label htmlFor={`${isEditing ? 'edit_' : ''}password`}>🔒 {isEditing ? 'Nueva ' : ''}Contraseña:</label>
+        <input
+          type="password"
+          id={`${isEditing ? 'edit_' : ''}password`}
+          name="password"
+          value={formData.password}
+          onChange={onInputChange}
+          placeholder={isEditing ? "Dejar vacío para mantener actual" : "Mínimo 6 caracteres"}
+          required={!isEditing}
+        />
+        {isEditing && (
+          <small>Dejar vacío si no quieres cambiar la contraseña</small>
+        )}
+      </div>
+
+      <div className="form-group">
+        <label htmlFor={`${isEditing ? 'edit_' : ''}role`}>👑 Rol:</label>
+        <select
+          id={`${isEditing ? 'edit_' : ''}role`}
+          name="role"
+          value={formData.role}
+          onChange={onInputChange}
+          disabled={isEditing && selectedUser?.id === currentUser?.id}
+        >
+          <option value="user">👤 Usuario</option>
+          <option value="admin">👑 Administrador</option>
+        </select>
+        {isEditing && selectedUser?.id === currentUser?.id && (
+          <small>No puedes cambiar tu propio rol</small>
+        )}
+      </div>
+    </div>
+
+    <div className="form-group">
+      <label className="checkbox-label">
+        <input
+          type="checkbox"
+          name="is_active"
+          checked={formData.is_active}
+          onChange={onInputChange}
+          disabled={isEditing && selectedUser?.id === currentUser?.id}
+        />
+        ✅ Usuario activo
+        {isEditing && selectedUser?.id === currentUser?.id && (
+          <small>No puedes desactivarte a ti mismo</small>
+        )}
+      </label>
+    </div>
+  </div>
+);
+
+// ✅ COMPONENTE SECCIÓN DE PERMISOS
+const PermissionsSection = ({ userPermissions, availablePermissions, onPermissionChange }) => (
+  <div className="form-section">
+    <h3>🔐 Permisos Específicos</h3>
+    <p className="permissions-note">
+      Los administradores tienen todos los permisos automáticamente
+    </p>
+    
+    <div className="permissions-grid">
+      {Object.entries(availablePermissions).map(([perm, label]) => (
+        <label key={perm} className="permission-item">
+          <input
+            type="checkbox"
+            checked={userPermissions[perm] || false}
+            onChange={() => onPermissionChange(perm)}
+          />
+          <span>{label}</span>
+        </label>
+      ))}
+    </div>
+  </div>
+);
 
 export default UserManagement;
