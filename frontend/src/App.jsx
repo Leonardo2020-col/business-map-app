@@ -9,11 +9,11 @@ import Login from './components/Login/Login';
 import Dashboard from './components/Dashboard/Dashboard';
 import MapPage from './pages/MapPage';
 import SystemReports from './components/SystemReports/SystemReports';
-// ✅ IMPORTACIÓN CORREGIDA - puede ser con o sin extensión
 import BusinessesPage from './pages/BusinessesPage';
 import BusinessForm from './components/BusinessForm/BusinessForm';
 import Profile from './components/Profile';
-import UserManagement from './components/UserManagement/UserManagement';
+// ✅ CAMBIO: Importar UsersPage en lugar de UserManagement directamente
+import UsersPage from './pages/UsersPage';
 import PasswordReset from './components/PasswordReset/PasswordReset';
 
 import './App.css';
@@ -53,7 +53,6 @@ function App() {
               } 
             />
             
-            {/* ✅ RUTA CORREGIDA PARA BUSINESSES */}
             <Route 
               path="/businesses" 
               element={
@@ -72,6 +71,7 @@ function App() {
               } 
             />
             
+            {/* Rutas para formularios de negocios */}
             <Route 
               path="/business/new" 
               element={
@@ -90,7 +90,6 @@ function App() {
               } 
             />
             
-            {/* ✅ RUTAS ADICIONALES PARA NEGOCIOS */}
             <Route 
               path="/businesses/edit/:id" 
               element={
@@ -109,13 +108,13 @@ function App() {
               } 
             />
             
-            {/* ✅ RUTAS DE ADMINISTRACIÓN */}
-            {/* Ruta nueva para /users que necesita el Dashboard */}
+            {/* ✅ RUTAS DE ADMINISTRACIÓN CORREGIDAS */}
+            {/* Gestión de usuarios - ahora usa UsersPage que incluye Navbar */}
             <Route 
               path="/users" 
               element={
                 <ProtectedRoute requireAdmin={true}>
-                  <UserManagement />
+                  <UsersPage />
                 </ProtectedRoute>
               } 
             />
@@ -125,7 +124,7 @@ function App() {
               path="/admin/users" 
               element={
                 <ProtectedRoute requireAdmin={true}>
-                  <UserManagement />
+                  <UsersPage />
                 </ProtectedRoute>
               } 
             />
@@ -140,21 +139,21 @@ function App() {
               } 
             />
             
+            {/* Reportes del Sistema - Solo para admins autenticados */}
+            <Route 
+              path="/admin/reports" 
+              element={
+                <ProtectedRoute requireAdmin={true}>
+                  <SystemReports />
+                </ProtectedRoute>
+              } 
+            />
+            
             {/* Ruta por defecto - redirigir según estado de autenticación */}
             <Route 
               path="/" 
               element={<Navigate to="/dashboard" replace />} 
             />
-
-            {/* Reportes del Sistema - Solo para admins autenticados */}
-            <Route 
-              path="/admin/reports" 
-              element={
-    <ProtectedRoute requireAdmin={true}>
-      <SystemReports />
-    </ProtectedRoute>
-  } 
-/>
             
             {/* Ruta 404 */}
             <Route 
@@ -166,7 +165,6 @@ function App() {
                   <a href="/dashboard">Volver al Dashboard</a>
                 </div>
               } 
-              
             />
           </Routes>
         </div>
