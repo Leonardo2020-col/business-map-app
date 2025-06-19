@@ -199,12 +199,12 @@ const Dashboard = () => {
                 <div className="card-status active">Activo</div>
               </Link>
               
-              <div className="admin-link-card disabled">
+              <Link to="/admin/reports" className="admin-link-card">
                 <span className="icon">📊</span>
                 <h3>Reportes del Sistema</h3>
                 <p>Análisis detallados y estadísticas del sistema</p>
-                <div className="card-status coming-soon">Próximamente</div>
-              </div>
+                <div className="card-status active">Activo</div>
+              </Link>
             </div>
           </div>
         )}

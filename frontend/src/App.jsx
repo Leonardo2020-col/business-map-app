@@ -8,6 +8,7 @@ import PublicRoute from './components/PublicRoute';
 import Login from './components/Login/Login';
 import Dashboard from './components/Dashboard/Dashboard';
 import MapPage from './pages/MapPage';
+import SystemReports from './components/SystemReports/SystemReports';
 // ✅ IMPORTACIÓN CORREGIDA - puede ser con o sin extensión
 import BusinessesPage from './pages/BusinessesPage';
 import BusinessForm from './components/BusinessForm/BusinessForm';
@@ -144,6 +145,16 @@ function App() {
               path="/" 
               element={<Navigate to="/dashboard" replace />} 
             />
+
+            {/* Reportes del Sistema - Solo para admins autenticados */}
+            <Route 
+              path="/admin/reports" 
+              element={
+    <ProtectedRoute requireAdmin={true}>
+      <SystemReports />
+    </ProtectedRoute>
+  } 
+/>
             
             {/* Ruta 404 */}
             <Route 
@@ -155,6 +166,7 @@ function App() {
                   <a href="/dashboard">Volver al Dashboard</a>
                 </div>
               } 
+              
             />
           </Routes>
         </div>
