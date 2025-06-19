@@ -331,4 +331,117 @@ router.get('/verify', (req, res) => {
   }
 });
 
+// POST /api/auth/reset-password - Resetear contraseña (solo admins)
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { username, newPassword } = req.body;
+
+    // Verificar token
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Token de autenticación requerido',
+        error: 'TOKEN_REQUIRED'
+      });
+    }
+
+    // Decodificar token y verificar que sea admin
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'default_secret_change_in_production');
+    
+    // Verificar que el modelo User esté disponible
+    if (!User) {
+      return res.status(503).json({
+        success: false,
+        message: 'Servicio de usuarios no disponible',
+        error: 'USER_MODEL_NOT_AVAILABLE'
+      });
+    }
+
+    // Buscar usuario que hace la petición
+    const adminUser = await User.findByPk(decoded.id);
+    if (!adminUser || adminUser.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Solo los administradores pueden resetear contraseñas',
+        error: 'ADMIN_REQUIRED'
+      });
+    }
+
+    // Validaciones básicas
+    if (!username || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Nombre de usuario y nueva contraseña son requeridos',
+        error: 'MISSING_REQUIRED_FIELDS'
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'La contraseña debe tener al menos 6 caracteres',
+        error: 'INVALID_PASSWORD'
+      });
+    }
+
+    // Buscar usuario a resetear
+    const targetUser = await User.findByUsername(username);
+    if (!targetUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado',
+        error: 'USER_NOT_FOUND'
+      });
+    }
+
+    // Hashear nueva contraseña
+    const saltRounds = 12;
+    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+
+    // Actualizar contraseña
+    await targetUser.update({
+      password: hashedPassword,
+      updated_at: new Date()
+    });
+
+    console.log(`🔑 Admin ${adminUser.username} reseteo la contraseña de ${targetUser.username}`);
+
+    // Respuesta exitosa (sin incluir la contraseña)
+    res.json({
+      success: true,
+      message: `Contraseña actualizada exitosamente para el usuario ${username}`,
+      data: {
+        username: targetUser.username,
+        resetBy: adminUser.username,
+        resetAt: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({
+        success: false,
+        message: 'Token inválido',
+        error: 'INVALID_TOKEN'
+      });
+    }
+
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        success: false,
+        message: 'Token expirado',
+        error: 'TOKEN_EXPIRED'
+      });
+    }
+
+    console.error('❌ Error en reset-password:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor',
+      error: 'INTERNAL_ERROR'
+    });
+  }
+});
+
 module.exports = router;
