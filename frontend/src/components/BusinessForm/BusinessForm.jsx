@@ -12,7 +12,7 @@ const BusinessForm = () => {
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
   
-  // Estados del formulario
+  // Estados del formulario - ACTUALIZADO con nuevos campos
   const [formData, setFormData] = useState({
     name: '',
     address: '',
@@ -24,7 +24,13 @@ const BusinessForm = () => {
     email: '',
     description: '',
     latitude: '',
-    longitude: ''
+    longitude: '',
+    // ✅ NUEVOS CAMPOS DE SERVICIOS
+    defensa_civil_expiry: '',
+    extintores_expiry: '',
+    fumigacion_expiry: '',
+    pozo_tierra_expiry: '',
+    publicidad_expiry: ''
   });
 
   const [loading, setLoading] = useState(false);
@@ -86,7 +92,13 @@ const BusinessForm = () => {
           email: business.email || '',
           description: business.description || '',
           latitude: business.latitude || '',
-          longitude: business.longitude || ''
+          longitude: business.longitude || '',
+          // ✅ CARGAR NUEVOS CAMPOS
+          defensa_civil_expiry: business.defensa_civil_expiry || '',
+          extintores_expiry: business.extintores_expiry || '',
+          fumigacion_expiry: business.fumigacion_expiry || '',
+          pozo_tierra_expiry: business.pozo_tierra_expiry || '',
+          publicidad_expiry: business.publicidad_expiry || ''
         });
 
         // Si tiene coordenadas, establecer la ubicación seleccionada
@@ -115,6 +127,32 @@ const BusinessForm = () => {
     // Limpiar mensajes al editar
     if (error) setError('');
     if (success) setSuccess('');
+  };
+
+  // ✅ FUNCIÓN PARA VERIFICAR SI UNA FECHA ESTÁ VENCIDA
+  const isExpired = (dateString) => {
+    if (!dateString) return false;
+    const expiryDate = new Date(dateString);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Resetear horas para comparar solo fechas
+    return expiryDate < today;
+  };
+
+  // ✅ FUNCIÓN PARA VERIFICAR SI UNA FECHA VENCE PRONTO (30 días)
+  const isExpiringSoon = (dateString) => {
+    if (!dateString) return false;
+    const expiryDate = new Date(dateString);
+    const today = new Date();
+    const thirtyDaysFromNow = new Date(today.getTime() + (30 * 24 * 60 * 60 * 1000));
+    return expiryDate >= today && expiryDate <= thirtyDaysFromNow;
+  };
+
+  // ✅ FUNCIÓN PARA OBTENER LA CLASE CSS SEGÚN EL ESTADO DE LA FECHA
+  const getExpiryClass = (dateString) => {
+    if (!dateString) return '';
+    if (isExpired(dateString)) return 'expired';
+    if (isExpiringSoon(dateString)) return 'expiring-soon';
+    return 'valid';
   };
 
   // Función para abrir el modal del mapa
@@ -196,7 +234,13 @@ const BusinessForm = () => {
         ...formData,
         email: formData.email.trim() || null,
         latitude: formData.latitude ? parseFloat(formData.latitude) : null,
-        longitude: formData.longitude ? parseFloat(formData.longitude) : null
+        longitude: formData.longitude ? parseFloat(formData.longitude) : null,
+        // ✅ INCLUIR FECHAS DE VENCIMIENTO (como null si están vacías)
+        defensa_civil_expiry: formData.defensa_civil_expiry || null,
+        extintores_expiry: formData.extintores_expiry || null,
+        fumigacion_expiry: formData.fumigacion_expiry || null,
+        pozo_tierra_expiry: formData.pozo_tierra_expiry || null,
+        publicidad_expiry: formData.publicidad_expiry || null
       };
 
       if (isEditing) {
@@ -407,7 +451,7 @@ const BusinessForm = () => {
                 />
               </div>
 
-              {/* ✅ SECCIÓN DE MAPA SIMPLIFICADA - SIN COORDENADAS MANUALES */}
+              {/* Sección de mapa */}
               <div className="form-group">
                 <label>🗺️ Ubicación en el mapa:</label>
                 
@@ -456,6 +500,160 @@ const BusinessForm = () => {
                     </button>
                   </div>
                 )}
+              </div>
+            </div>
+
+            {/* ✅ NUEVA SECCIÓN - SERVICIOS Y VENCIMIENTOS */}
+            <div className="form-section">
+              <h3 className="section-title">📋 Servicios y Documentación</h3>
+              <p className="section-description">
+                Registra las fechas de vencimiento de los servicios y documentos importantes del negocio
+              </p>
+              
+              {/* Defensa Civil */}
+              <div className="form-group">
+                <label htmlFor="defensa_civil_expiry">
+                  🚨 Defensa Civil - Fecha de Vencimiento:
+                </label>
+                <input
+                  type="date"
+                  id="defensa_civil_expiry"
+                  name="defensa_civil_expiry"
+                  value={formData.defensa_civil_expiry}
+                  onChange={handleChange}
+                  className={`expiry-input ${getExpiryClass(formData.defensa_civil_expiry)}`}
+                />
+                {formData.defensa_civil_expiry && (
+                  <div className="expiry-status">
+                    {isExpired(formData.defensa_civil_expiry) && (
+                      <span className="status-expired">⚠️ VENCIDO</span>
+                    )}
+                    {isExpiringSoon(formData.defensa_civil_expiry) && !isExpired(formData.defensa_civil_expiry) && (
+                      <span className="status-expiring">⏰ Vence pronto</span>
+                    )}
+                    {!isExpired(formData.defensa_civil_expiry) && !isExpiringSoon(formData.defensa_civil_expiry) && (
+                      <span className="status-valid">✅ Vigente</span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Extintores */}
+              <div className="form-group">
+                <label htmlFor="extintores_expiry">
+                  🧯 Extintores - Fecha de Vencimiento:
+                </label>
+                <input
+                  type="date"
+                  id="extintores_expiry"
+                  name="extintores_expiry"
+                  value={formData.extintores_expiry}
+                  onChange={handleChange}
+                  className={`expiry-input ${getExpiryClass(formData.extintores_expiry)}`}
+                />
+                {formData.extintores_expiry && (
+                  <div className="expiry-status">
+                    {isExpired(formData.extintores_expiry) && (
+                      <span className="status-expired">⚠️ VENCIDO</span>
+                    )}
+                    {isExpiringSoon(formData.extintores_expiry) && !isExpired(formData.extintores_expiry) && (
+                      <span className="status-expiring">⏰ Vence pronto</span>
+                    )}
+                    {!isExpired(formData.extintores_expiry) && !isExpiringSoon(formData.extintores_expiry) && (
+                      <span className="status-valid">✅ Vigente</span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Fumigación */}
+              <div className="form-group">
+                <label htmlFor="fumigacion_expiry">
+                  🦟 Fumigación - Fecha de Vencimiento:
+                </label>
+                <input
+                  type="date"
+                  id="fumigacion_expiry"
+                  name="fumigacion_expiry"
+                  value={formData.fumigacion_expiry}
+                  onChange={handleChange}
+                  className={`expiry-input ${getExpiryClass(formData.fumigacion_expiry)}`}
+                />
+                {formData.fumigacion_expiry && (
+                  <div className="expiry-status">
+                    {isExpired(formData.fumigacion_expiry) && (
+                      <span className="status-expired">⚠️ VENCIDO</span>
+                    )}
+                    {isExpiringSoon(formData.fumigacion_expiry) && !isExpired(formData.fumigacion_expiry) && (
+                      <span className="status-expiring">⏰ Vence pronto</span>
+                    )}
+                    {!isExpired(formData.fumigacion_expiry) && !isExpiringSoon(formData.fumigacion_expiry) && (
+                      <span className="status-valid">✅ Vigente</span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Pozo a Tierra */}
+              <div className="form-group">
+                <label htmlFor="pozo_tierra_expiry">
+                  ⚡ Pozo a Tierra - Fecha de Vencimiento:
+                </label>
+                <input
+                  type="date"
+                  id="pozo_tierra_expiry"
+                  name="pozo_tierra_expiry"
+                  value={formData.pozo_tierra_expiry}
+                  onChange={handleChange}
+                  className={`expiry-input ${getExpiryClass(formData.pozo_tierra_expiry)}`}
+                />
+                {formData.pozo_tierra_expiry && (
+                  <div className="expiry-status">
+                    {isExpired(formData.pozo_tierra_expiry) && (
+                      <span className="status-expired">⚠️ VENCIDO</span>
+                    )}
+                    {isExpiringSoon(formData.pozo_tierra_expiry) && !isExpired(formData.pozo_tierra_expiry) && (
+                      <span className="status-expiring">⏰ Vence pronto</span>
+                    )}
+                    {!isExpired(formData.pozo_tierra_expiry) && !isExpiringSoon(formData.pozo_tierra_expiry) && (
+                      <span className="status-valid">✅ Vigente</span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Publicidad */}
+              <div className="form-group">
+                <label htmlFor="publicidad_expiry">
+                  📢 Publicidad - Fecha de Vencimiento:
+                </label>
+                <input
+                  type="date"
+                  id="publicidad_expiry"
+                  name="publicidad_expiry"
+                  value={formData.publicidad_expiry}
+                  onChange={handleChange}
+                  className={`expiry-input ${getExpiryClass(formData.publicidad_expiry)}`}
+                />
+                {formData.publicidad_expiry && (
+                  <div className="expiry-status">
+                    {isExpired(formData.publicidad_expiry) && (
+                      <span className="status-expired">⚠️ VENCIDO</span>
+                    )}
+                    {isExpiringSoon(formData.publicidad_expiry) && !isExpired(formData.publicidad_expiry) && (
+                      <span className="status-expiring">⏰ Vence pronto</span>
+                    )}
+                    {!isExpired(formData.publicidad_expiry) && !isExpiringSoon(formData.publicidad_expiry) && (
+                      <span className="status-valid">✅ Vigente</span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="services-info">
+                <p style={{ fontSize: '14px', color: '#666', fontStyle: 'italic', marginTop: '20px' }}>
+                  💡 <strong>Tip:</strong> Mantener actualizadas las fechas de vencimiento te ayudará a renovar estos servicios a tiempo y evitar multas o problemas legales.
+                </p>
               </div>
             </div>
           </form>

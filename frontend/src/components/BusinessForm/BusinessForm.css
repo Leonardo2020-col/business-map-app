@@ -1,4 +1,4 @@
-/* BusinessForm.css - Fix de scroll y altura completa */
+/* BusinessForm.css - Fix de scroll y altura completa + Servicios */
 
 /* ===============================
    MODAL OVERLAY (si usas modal)
@@ -136,6 +136,14 @@
   gap: 8px;
 }
 
+.section-description {
+  margin: 0 0 20px 0;
+  color: #666;
+  font-size: 14px;
+  font-style: italic;
+  line-height: 1.5;
+}
+
 /* ===============================
    GRUPOS DE FORMULARIO
    =============================== */
@@ -184,6 +192,101 @@
   resize: vertical;
   min-height: 80px;
   max-height: 200px;
+}
+
+/* ===============================
+   ✅ ESTILOS PARA SERVICIOS Y FECHAS DE VENCIMIENTO
+   =============================== */
+
+/* Inputs de fecha con estados */
+.expiry-input {
+  position: relative;
+}
+
+.expiry-input.expired {
+  border-color: #dc3545 !important;
+  background-color: #fdf2f2 !important;
+}
+
+.expiry-input.expiring-soon {
+  border-color: #ffc107 !important;
+  background-color: #fffbf2 !important;
+}
+
+.expiry-input.valid {
+  border-color: #28a745 !important;
+  background-color: #f2fcf2 !important;
+}
+
+/* Estados de vencimiento */
+.expiry-status {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.status-expired {
+  color: #dc3545;
+  background: #fdf2f2;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #f8d7da;
+  animation: pulse-red 2s infinite;
+}
+
+.status-expiring {
+  color: #856404;
+  background: #fff3cd;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #ffeaa7;
+  animation: pulse-yellow 2s infinite;
+}
+
+.status-valid {
+  color: #155724;
+  background: #d4edda;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #c3e6cb;
+}
+
+/* Animaciones para estados críticos */
+@keyframes pulse-red {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes pulse-yellow {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* Información de servicios */
+.services-info {
+  margin-top: 20px;
+  padding: 15px;
+  background: #e8f4f8;
+  border-radius: 8px;
+  border-left: 4px solid #17a2b8;
+}
+
+.services-info p {
+  margin: 0;
+  color: #0c5460;
 }
 
 /* ===============================
@@ -469,6 +572,18 @@ html {
   .coordinates-manual .form-row {
     grid-template-columns: 1fr;
   }
+
+  /* Estados de vencimiento en móvil */
+  .expiry-status {
+    font-size: 11px;
+  }
+
+  .status-expired,
+  .status-expiring,
+  .status-valid {
+    padding: 3px 6px;
+    font-size: 11px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -493,6 +608,14 @@ html {
 
   .form-actions {
     padding: 15px;
+  }
+
+  .services-info {
+    padding: 12px;
+  }
+
+  .services-info p {
+    font-size: 13px;
   }
 }
 
@@ -542,4 +665,65 @@ html {
 .form-group textarea:focus:valid {
   border-color: #28a745;
   box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1);
+}
+
+/* ===============================
+   ✅ MEJORAS PARA FECHAS DE VENCIMIENTO
+   =============================== */
+
+/* Hover effects para inputs de fecha */
+.expiry-input:hover {
+  border-color: #667eea !important;
+}
+
+.expiry-input:focus {
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
+}
+
+.expiry-input.expired:focus {
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1) !important;
+}
+
+.expiry-input.expiring-soon:focus {
+  box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.1) !important;
+}
+
+.expiry-input.valid:focus {
+  box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1) !important;
+}
+
+/* Indicadores visuales adicionales */
+.form-group:has(.expiry-input.expired) label::after {
+  content: " ⚠️";
+  color: #dc3545;
+}
+
+.form-group:has(.expiry-input.expiring-soon) label::after {
+  content: " ⏰";
+  color: #ffc107;
+}
+
+.form-group:has(.expiry-input.valid) label::after {
+  content: " ✅";
+  color: #28a745;
+}
+
+/* Mejora accesibilidad */
+@media (prefers-reduced-motion: reduce) {
+  .pulse-red,
+  .pulse-yellow {
+    animation: none !important;
+  }
+}
+
+/* Dark mode support (opcional) */
+@media (prefers-color-scheme: dark) {
+  .services-info {
+    background: #1a2332;
+    border-left-color: #17a2b8;
+  }
+
+  .services-info p {
+    color: #b8dce8;
+  }
 }

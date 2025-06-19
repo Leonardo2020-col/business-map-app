@@ -979,3 +979,383 @@
     box-shadow: none;
   }
 }
+
+/* ============================================================================
+   ESTILOS ADICIONALES PARA SERVICIOS EN BUSINESS TABLE
+   Agregar estos estilos al final de BusinessTable.css
+   ============================================================================ */
+
+/* ===============================
+   COLUMNA DE SERVICIOS
+   =============================== */
+.services-cell {
+  min-width: 200px;
+  max-width: 250px;
+  padding: 12px 8px !important;
+}
+
+/* ===============================
+   ESTADO DE SERVICIOS - VISTA COMPLETA
+   =============================== */
+.services-status {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.service-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.service-item.expired {
+  background: #fdf2f2;
+  border-left: 3px solid #dc3545;
+}
+
+.service-item.expiring-soon {
+  background: #fffbf2;
+  border-left: 3px solid #ffc107;
+}
+
+.service-item.valid {
+  background: #f2fcf2;
+  border-left: 3px solid #28a745;
+}
+
+.service-item.no-date {
+  background: #f8f9fa;
+  border-left: 3px solid #6c757d;
+}
+
+.service-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.service-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.service-name {
+  font-weight: 600;
+  color: #333;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.service-date {
+  font-size: 10px;
+  color: #666;
+  font-family: monospace;
+}
+
+.service-status {
+  font-size: 10px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.service-status.expired {
+  color: #dc3545;
+}
+
+.service-status.expiring-soon {
+  color: #856404;
+}
+
+.service-status.valid {
+  color: #155724;
+}
+
+.service-status.no-date {
+  color: #6c757d;
+}
+
+/* ===============================
+   ESTADO DE SERVICIOS - VISTA COMPACTA
+   =============================== */
+.services-status-compact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.services-status-ok {
+  color: #155724;
+  font-size: 12px;
+  font-weight: 600;
+  background: #d4edda;
+  padding: 4px 8px;
+  border-radius: 12px;
+  border: 1px solid #c3e6cb;
+}
+
+.service-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 500;
+  cursor: help;
+  transition: all 0.2s ease;
+}
+
+.service-badge.expired {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.service-badge.expiring-soon {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeaa7;
+}
+
+.service-badge:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* ===============================
+   RESPONSIVE PARA SERVICIOS
+   =============================== */
+@media (max-width: 1200px) {
+  .services-cell {
+    min-width: 180px;
+    max-width: 200px;
+  }
+
+  .services-status {
+    gap: 4px;
+  }
+
+  .service-item {
+    padding: 3px 5px;
+  }
+
+  .service-name {
+    font-size: 10px;
+  }
+
+  .service-date,
+  .service-status {
+    font-size: 9px;
+  }
+}
+
+@media (max-width: 992px) {
+  .services-cell {
+    min-width: 150px;
+    max-width: 170px;
+  }
+
+  /* Mostrar solo vista compacta en tablet */
+  .services-status {
+    display: none;
+  }
+
+  .services-status-compact,
+  .services-status-ok {
+    display: flex;
+  }
+}
+
+@media (max-width: 768px) {
+  /* En móvil, los servicios se muestran en las cards */
+  .services-cell {
+    display: none;
+  }
+
+  /* Estilos para servicios en cards móvil */
+  .business-card .services-status-compact {
+    justify-content: flex-start;
+    margin-top: 8px;
+  }
+
+  .business-card .services-status-ok {
+    font-size: 11px;
+    padding: 3px 6px;
+  }
+
+  .business-card .service-badge {
+    font-size: 9px;
+    padding: 2px 4px;
+  }
+}
+
+/* ===============================
+   HOVER EFFECTS Y TOOLTIPS
+   =============================== */
+.service-item:hover {
+  background-opacity: 0.8;
+  transform: translateX(2px);
+}
+
+.service-badge[title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #333;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  white-space: nowrap;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+/* ===============================
+   ANIMACIONES PARA ESTADOS CRÍTICOS
+   =============================== */
+.service-item.expired,
+.service-badge.expired {
+  animation: subtle-pulse-red 3s infinite;
+}
+
+.service-item.expiring-soon,
+.service-badge.expiring-soon {
+  animation: subtle-pulse-yellow 4s infinite;
+}
+
+@keyframes subtle-pulse-red {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@keyframes subtle-pulse-yellow {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.95;
+  }
+}
+
+/* ===============================
+   FILTRO DE SERVICIOS
+   =============================== */
+.filter-group select.filter-input {
+  background-image: url("data:image/svg+xml;charset=US-ASCII,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 5'><path fill='%23666' d='M2 0L0 2h4zm0 5L0 3h4z'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px;
+  padding-right: 32px;
+  cursor: pointer;
+}
+
+.filter-group select.filter-input:focus {
+  background-image: url("data:image/svg+xml;charset=US-ASCII,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 5'><path fill='%23667eea' d='M2 0L0 2h4zm0 5L0 3h4z'/></svg>");
+}
+
+/* ===============================
+   MEJORAS DE ACCESIBILIDAD
+   =============================== */
+.service-item:focus-within,
+.service-badge:focus {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+/* Reducir animaciones para usuarios que lo prefieren */
+@media (prefers-reduced-motion: reduce) {
+  .service-item,
+  .service-badge,
+  .subtle-pulse-red,
+  .subtle-pulse-yellow {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ===============================
+   DARK MODE SUPPORT (OPCIONAL)
+   =============================== */
+@media (prefers-color-scheme: dark) {
+  .service-item.expired {
+    background: #2d1b1b;
+    border-left-color: #dc3545;
+  }
+
+  .service-item.expiring-soon {
+    background: #2d2619;
+    border-left-color: #ffc107;
+  }
+
+  .service-item.valid {
+    background: #1b2d1b;
+    border-left-color: #28a745;
+  }
+
+  .service-item.no-date {
+    background: #2d2d2d;
+    border-left-color: #6c757d;
+  }
+
+  .service-name {
+    color: #e9ecef;
+  }
+
+  .service-date {
+    color: #adb5bd;
+  }
+
+  .services-status-ok {
+    background: #1b2d1b;
+    color: #c3e6cb;
+    border-color: #28a745;
+  }
+}
+
+/* ===============================
+   PRINT STYLES
+   =============================== */
+@media print {
+  .services-status {
+    display: block !important;
+  }
+
+  .services-status-compact {
+    display: none !important;
+  }
+
+  .service-item {
+    border: 1px solid #ccc !important;
+    background: white !important;
+    margin-bottom: 2px;
+  }
+
+  .service-badge {
+    display: none;
+  }
+
+  .subtle-pulse-red,
+  .subtle-pulse-yellow {
+    animation: none !important;
+  }
+}

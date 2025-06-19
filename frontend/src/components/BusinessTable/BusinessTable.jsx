@@ -5,7 +5,126 @@ import LoadingSpinner from '../LoadingSpinner';
 import './BusinessTable.css';
 
 // ============================================================================
-// COMPONENTE BASE DE TABLA - Simplificado
+// FUNCIONES UTILITARIAS PARA FECHAS
+// ============================================================================
+const isExpired = (dateString) => {
+  if (!dateString) return false;
+  const expiryDate = new Date(dateString);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return expiryDate < today;
+};
+
+const isExpiringSoon = (dateString) => {
+  if (!dateString) return false;
+  const expiryDate = new Date(dateString);
+  const today = new Date();
+  const thirtyDaysFromNow = new Date(today.getTime() + (30 * 24 * 60 * 60 * 1000));
+  return expiryDate >= today && expiryDate <= thirtyDaysFromNow;
+};
+
+const formatDate = (dateString) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('es-PE');
+};
+
+// ============================================================================
+// COMPONENTE PARA MOSTRAR SERVICIOS
+// ============================================================================
+const ServicesStatus = ({ business, compact = false }) => {
+  const services = [
+    { key: 'defensa_civil_expiry', name: 'Defensa Civil', icon: '🚨' },
+    { key: 'extintores_expiry', name: 'Extintores', icon: '🧯' },
+    { key: 'fumigacion_expiry', name: 'Fumigación', icon: '🦟' },
+    { key: 'pozo_tierra_expiry', name: 'Pozo a Tierra', icon: '⚡' },
+    { key: 'publicidad_expiry', name: 'Publicidad', icon: '📢' }
+  ];
+
+  const getServiceStatus = (dateString) => {
+    if (!dateString) return 'no-date';
+    if (isExpired(dateString)) return 'expired';
+    if (isExpiringSoon(dateString)) return 'expiring-soon';
+    return 'valid';
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'expired': return '🔴';
+      case 'expiring-soon': return '🟡';
+      case 'valid': return '🟢';
+      default: return '⚪';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'expired': return 'Vencido';
+      case 'expiring-soon': return 'Vence pronto';
+      case 'valid': return 'Vigente';
+      default: return 'Sin fecha';
+    }
+  };
+
+  if (compact) {
+    // Vista compacta - solo mostrar servicios con problemas
+    const problematicServices = services.filter(service => {
+      const status = getServiceStatus(business[service.key]);
+      return status === 'expired' || status === 'expiring-soon';
+    });
+
+    if (problematicServices.length === 0) {
+      return <span className="services-status-ok">✅ Todo al día</span>;
+    }
+
+    return (
+      <div className="services-status-compact">
+        {problematicServices.map(service => {
+          const status = getServiceStatus(business[service.key]);
+          return (
+            <span 
+              key={service.key} 
+              className={`service-badge ${status}`}
+              title={`${service.name}: ${formatDate(business[service.key])} - ${getStatusText(status)}`}
+            >
+              {service.icon} {getStatusIcon(status)}
+            </span>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // Vista completa
+  return (
+    <div className="services-status">
+      {services.map(service => {
+        const status = getServiceStatus(business[service.key]);
+        const dateValue = business[service.key];
+        
+        return (
+          <div key={service.key} className={`service-item ${status}`}>
+            <span className="service-icon">{service.icon}</span>
+            <div className="service-info">
+              <span className="service-name">{service.name}</span>
+              {dateValue && (
+                <span className="service-date">
+                  {formatDate(dateValue)}
+                </span>
+              )}
+              <span className={`service-status ${status}`}>
+                {getStatusIcon(status)} {getStatusText(status)}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// ============================================================================
+// COMPONENTE BASE DE TABLA - Con servicios
 // ============================================================================
 const BusinessTableBase = ({ 
   businesses = [], 
@@ -14,7 +133,8 @@ const BusinessTableBase = ({
   onDelete = null,
   showActions = true,
   maxRows = null,
-  compact = false 
+  compact = false,
+  showServices = true
 }) => {
   const navigate = useNavigate();
 
@@ -69,6 +189,7 @@ const BusinessTableBase = ({
               <th>Tipo</th>
               <th>Dirección</th>
               <th>Contacto</th>
+              {showServices && <th>Servicios</th>}
               {showActions && <th>Acciones</th>}
             </tr>
           </thead>
@@ -167,6 +288,13 @@ const BusinessTableBase = ({
                   </div>
                 </td>
                 
+                {/* NUEVA COLUMNA - Servicios */}
+                {showServices && (
+                  <td className="services-cell">
+                    <ServicesStatus business={business} compact={compact} />
+                  </td>
+                )}
+                
                 {/* Acciones - Solo Editar y Eliminar */}
                 {showActions && (
                   <td className="actions-cell">
@@ -204,6 +332,7 @@ const BusinessTableBase = ({
             onDelete={handleDelete}
             showActions={showActions}
             compact={compact}
+            showServices={showServices}
           />
         ))}
       </div>
@@ -212,9 +341,9 @@ const BusinessTableBase = ({
 };
 
 // ============================================================================
-// COMPONENTE CARD PARA MÓVIL - Simplificado
+// COMPONENTE CARD PARA MÓVIL - Con servicios
 // ============================================================================
-const BusinessCard = ({ business, onDelete, showActions = true, compact = false }) => {
+const BusinessCard = ({ business, onDelete, showActions = true, compact = false, showServices = true }) => {
   const navigate = useNavigate();
 
   return (
@@ -296,6 +425,19 @@ const BusinessCard = ({ business, onDelete, showActions = true, compact = false 
                 {business.email && (
                   <a href={`mailto:${business.email}`}>{business.email}</a>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* NUEVA SECCIÓN - Servicios en móvil */}
+        {showServices && (
+          <div className="business-card-detail">
+            <span className="detail-icon">📋</span>
+            <div className="detail-content">
+              <div className="detail-label">Estado de Servicios</div>
+              <div className="detail-value">
+                <ServicesStatus business={business} compact={true} />
               </div>
             </div>
           </div>
@@ -402,6 +544,7 @@ export const RecentBusinessesSection = () => {
         maxRows={5}
         compact={true}
         showActions={true}
+        showServices={true}
       />
       
       {businesses.length > 5 && (
@@ -430,6 +573,7 @@ const BusinessTable = () => {
   const [filterDistrito, setFilterDistrito] = useState('all');
   const [filterSector, setFilterSector] = useState('all');
   const [filterAnexo, setFilterAnexo] = useState('all');
+  const [filterService, setFilterService] = useState('all'); // NUEVO FILTRO
   const [businessTypes, setBusinessTypes] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
@@ -473,11 +617,6 @@ const BusinessTable = () => {
     }
   };
 
-  const loadLocationFilters = async () => {
-    // Ya no necesitamos cargar las opciones para dropdowns
-    // Los filtros ahora son de texto libre
-  };
-
   const handleDelete = async (businessId) => {
     try {
       await businessAPI.delete(businessId);
@@ -487,6 +626,15 @@ const BusinessTable = () => {
       console.error('Error eliminando negocio:', err);
       alert('Error al eliminar el negocio: ' + (err.response?.data?.message || err.message));
     }
+  };
+
+  // FUNCIÓN PARA VERIFICAR ESTADO DE SERVICIOS
+  const hasServiceIssues = (business) => {
+    const services = ['defensa_civil_expiry', 'extintores_expiry', 'fumigacion_expiry', 'pozo_tierra_expiry', 'publicidad_expiry'];
+    return services.some(service => {
+      const dateValue = business[service];
+      return dateValue && (isExpired(dateValue) || isExpiringSoon(dateValue));
+    });
   };
 
   // Filtrar negocios
@@ -509,7 +657,12 @@ const BusinessTable = () => {
     const matchesAnexo = filterAnexo === 'all' || 
       (business.anexo && business.anexo.toLowerCase().includes(filterAnexo.toLowerCase()));
     
-    return matchesSearch && matchesType && matchesDistrito && matchesSector && matchesAnexo;
+    // NUEVO FILTRO POR SERVICIOS
+    const matchesService = filterService === 'all' || 
+      (filterService === 'issues' && hasServiceIssues(business)) ||
+      (filterService === 'ok' && !hasServiceIssues(business));
+    
+    return matchesSearch && matchesType && matchesDistrito && matchesSector && matchesAnexo && matchesService;
   });
 
   // Paginación
@@ -628,6 +781,24 @@ const BusinessTable = () => {
           />
         </div>
 
+        {/* NUEVO FILTRO POR SERVICIOS */}
+        <div className="filter-group">
+          <label htmlFor="service-filter">📋 Servicios:</label>
+          <select
+            id="service-filter"
+            value={filterService}
+            onChange={(e) => {
+              setFilterService(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="filter-input"
+          >
+            <option value="all">Todos</option>
+            <option value="issues">Con problemas</option>
+            <option value="ok">Todo al día</option>
+          </select>
+        </div>
+
         {/* Botón para limpiar filtros */}
         <div className="filter-group filter-clear">
           <button
@@ -637,6 +808,7 @@ const BusinessTable = () => {
               setFilterDistrito('all');
               setFilterSector('all');
               setFilterAnexo('all');
+              setFilterService('all');
               setCurrentPage(1);
             }}
             className="btn btn-secondary"
@@ -651,7 +823,7 @@ const BusinessTable = () => {
       <div className="business-table-stats">
         <p>
           📊 Mostrando {currentBusinesses.length} de {filteredBusinesses.length} negocios
-          {(searchTerm || filterType !== 'all' || filterDistrito !== 'all' || filterSector !== 'all' || filterAnexo !== 'all') && 
+          {(searchTerm || filterType !== 'all' || filterDistrito !== 'all' || filterSector !== 'all' || filterAnexo !== 'all' || filterService !== 'all') && 
             ` (filtrado de ${businesses.length} total)`
           }
         </p>
@@ -683,6 +855,11 @@ const BusinessTable = () => {
               🏘️ Anexo: {filterAnexo}
             </span>
           )}
+          {filterService !== 'all' && (
+            <span className="active-filter">
+              📋 Servicios: {filterService === 'issues' ? 'Con problemas' : 'Todo al día'}
+            </span>
+          )}
         </div>
       </div>
 
@@ -694,6 +871,7 @@ const BusinessTable = () => {
         onDelete={handleDelete}
         showActions={true}
         compact={false}
+        showServices={true}
       />
 
       {/* Paginación */}
