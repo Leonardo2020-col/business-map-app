@@ -3,6 +3,11 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
+// Debug información
+console.log('📂 Directorio actual:', process.cwd());
+console.log('📂 __dirname:', __dirname);
+console.log('📂 Archivos en directorio actual:', require('fs').readdirSync('.'));
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -75,9 +80,9 @@ const setupModels = async () => {
     console.log('📊 Configurando modelos...');
     
     // ✅ RUTAS CORREGIDAS CON ./src/
-    const sequelize = require('./src/config/database');
-    const User = require('./src/models/User');
-    const Business = require('./src/models/Business');
+    const sequelize = require('./config/database');
+    const User = require('./models/User');
+    const Business = require('./models/Business');
     
     // Configurar asociaciones
     Business.belongsTo(User, { foreignKey: 'created_by', as: 'creator' });
@@ -144,17 +149,10 @@ const startServer = async () => {
     // ✅ CARGAR RUTAS DESPUÉS CON RUTAS CORREGIDAS
     console.log('🛣️ Registrando rutas...');
     
-    // 1. Autenticación (sin middleware adicional)
-    loadRoutes('./src/routes/auth', '/api/auth', 'rutas de autenticación');
-    
-    // 2. Usuarios básicos
-    loadRoutes('./src/routes/users', '/api/users', 'rutas de usuarios');
-    
-    // 3. Negocios ✅ RUTA CORREGIDA
-    loadRoutes('./src/routes/businesses', '/api/businesses', 'rutas de negocios');
-    
-    // 4. Administración (más específico al final)
-    loadRoutes('./src/routes/admin/users', '/api/admin/users', 'rutas de administración');
+loadRoutes('./routes/auth', '/api/auth', 'rutas de autenticación');
+loadRoutes('./routes/users', '/api/users', 'rutas de usuarios');
+loadRoutes('./routes/businesses', '/api/businesses', 'rutas de negocios');
+loadRoutes('./routes/admin/users', '/api/admin/users', 'rutas de administración');
     
     // ===============================================
     // ARCHIVOS ESTÁTICOS Y SPA FALLBACK
