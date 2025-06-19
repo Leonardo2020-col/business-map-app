@@ -161,7 +161,7 @@ loadRoutes('./routes/admin/users', '/api/admin/users', 'rutas de administración
       console.log('📁 Configurando archivos estáticos...');
       
       // La ruta correcta basada en tu estructura
-      const staticPath = path.join(__dirname, '../../frontend/dist');
+      const staticPath = path.join(__dirname, '../../../frontend/dist');
       const fs = require('fs');
       
       console.log(`🔍 Buscando frontend en: ${staticPath}`);
