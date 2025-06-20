@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useBusinesses } from '../../hooks/useBusinesses';
 import { useFilters } from '../../hooks/useFilters';
 import ServicesStatus from '../ServicesStatus/ServicesStatus';
-import LoadingSpinner from '../LoadingSpinner';
+import LoadingSpinner from '../LoadingSpinner/LoadingSpinner';
 import './BusinessTable.css';
 
 // ============================================================================
