@@ -211,6 +211,19 @@ const Business = sequelize.define('Business', {
     comment: 'Fecha de vencimiento del permiso de publicidad'
   },
 
+  // ✅ CAMPO is_active AGREGADO
+  is_active: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: true,
+    validate: {
+      notNull: {
+        msg: 'El estado activo/inactivo es requerido'
+      }
+    },
+    comment: 'Estado del negocio: activo (true) o inactivo (false)'
+  },
+
   created_by: {
     type: DataTypes.INTEGER,
     allowNull: false,
@@ -271,6 +284,11 @@ const Business = sequelize.define('Business', {
     {
       fields: ['publicidad_expiry'],
       name: 'idx_businesses_publicidad_expiry'
+    },
+    // ✅ ÍNDICE PARA is_active
+    {
+      fields: ['is_active'],
+      name: 'idx_businesses_is_active'
     }
   ],
   hooks: {
@@ -336,6 +354,21 @@ Business.prototype.getCoordinates = function() {
   return null;
 };
 
+// ✅ NUEVOS MÉTODOS HELPER PARA ESTADO ACTIVO
+Business.prototype.isActive = function() {
+  return this.is_active === true;
+};
+
+Business.prototype.activate = async function() {
+  this.is_active = true;
+  await this.save({ fields: ['is_active'] });
+};
+
+Business.prototype.deactivate = async function() {
+  this.is_active = false;
+  await this.save({ fields: ['is_active'] });
+};
+
 // ✅ NUEVOS MÉTODOS HELPER PARA SERVICIOS
 Business.prototype.getServicesStatus = function() {
   const { Op } = require('sequelize');
@@ -396,7 +429,8 @@ Business.prototype.getExpiringSoonServices = function() {
 Business.getByDistrict = async function(distrito) {
   return await this.findAll({
     where: {
-      distrito: distrito
+      distrito: distrito,
+      is_active: true // Solo negocios activos
     },
     order: [['name', 'ASC']]
   });
@@ -410,9 +444,39 @@ Business.getWithCoordinates = async function() {
       },
       longitude: {
         [require('sequelize').Op.not]: null
-      }
+      },
+      is_active: true // Solo negocios activos
     }
   });
+};
+
+// ✅ NUEVOS MÉTODOS ESTÁTICOS PARA ESTADO ACTIVO
+Business.getActive = async function() {
+  return await this.findAll({
+    where: { is_active: true },
+    order: [['name', 'ASC']]
+  });
+};
+
+Business.getInactive = async function() {
+  return await this.findAll({
+    where: { is_active: false },
+    order: [['name', 'ASC']]
+  });
+};
+
+Business.countByStatus = async function() {
+  const { Op } = require('sequelize');
+  const [active, inactive] = await Promise.all([
+    this.count({ where: { is_active: true } }),
+    this.count({ where: { is_active: false } })
+  ]);
+  
+  return {
+    active,
+    inactive,
+    total: active + inactive
+  };
 };
 
 // ✅ NUEVOS MÉTODOS ESTÁTICOS PARA SERVICIOS
@@ -423,6 +487,7 @@ Business.getWithServiceIssues = async function() {
   
   return await this.findAll({
     where: {
+      is_active: true, // Solo negocios activos
       [Op.or]: [
         // Servicios vencidos
         { defensa_civil_expiry: { [Op.lt]: today } },
@@ -448,6 +513,7 @@ Business.getExpiredServices = async function() {
   
   return await this.findAll({
     where: {
+      is_active: true, // Solo negocios activos
       [Op.or]: [
         { defensa_civil_expiry: { [Op.lt]: today } },
         { extintores_expiry: { [Op.lt]: today } },
@@ -467,6 +533,7 @@ Business.getServicesExpiringSoon = async function(days = 30) {
   
   return await this.findAll({
     where: {
+      is_active: true, // Solo negocios activos
       [Op.or]: [
         { defensa_civil_expiry: { [Op.between]: [today, futureDate] } },
         { extintores_expiry: { [Op.between]: [today, futureDate] } },
