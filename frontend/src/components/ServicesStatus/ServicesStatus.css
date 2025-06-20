@@ -1,0 +1,215 @@
+/* ===============================================
+   SERVICES STATUS - ESTILOS
+   =============================================== */
+
+.services-status {
+  width: 100%;
+}
+
+.services-title {
+  margin: 0 0 15px 0;
+  color: #333;
+  font-size: 1.1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ===============================================
+   VISTA COMPACTA
+   =============================================== */
+.services-status-ok {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  background: #d4edda;
+  color: #155724;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid #c3e6cb;
+}
+
+.services-status-compact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.service-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: help;
+  transition: all 0.2s ease;
+}
+
+.service-badge:hover {
+  transform: scale(1.05);
+}
+
+.service-badge.expired {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.service-badge.expiring-soon {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeaa7;
+}
+
+.service-badge.valid {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.service-badge.no-date {
+  background: #f8f9fa;
+  color: #6c757d;
+  border: 1px solid #dee2e6;
+}
+
+/* ===============================================
+   VISTA COMPLETA
+   =============================================== */
+.services-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.service-item {
+  background: white;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  padding: 12px;
+  transition: all 0.3s ease;
+}
+
+.service-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.service-item.expired {
+  border-color: #dc3545;
+  background: linear-gradient(135deg, #fff 0%, #f8d7da 100%);
+}
+
+.service-item.expiring-soon {
+  border-color: #ffc107;
+  background: linear-gradient(135deg, #fff 0%, #fff3cd 100%);
+}
+
+.service-item.valid {
+  border-color: #28a745;
+  background: linear-gradient(135deg, #fff 0%, #d4edda 100%);
+}
+
+.service-item.no-date {
+  border-color: #6c757d;
+  background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
+}
+
+.service-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.service-icon {
+  font-size: 1.2rem;
+}
+
+.service-name {
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+}
+
+.service-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.service-date {
+  font-size: 12px;
+  color: #666;
+  font-weight: 500;
+}
+
+.service-status {
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.service-status.expired {
+  color: #dc3545;
+}
+
+.service-status.expiring-soon {
+  color: #ffc107;
+}
+
+.service-status.valid {
+  color: #28a745;
+}
+
+.service-status.no-date {
+  color: #6c757d;
+}
+
+.service-no-date {
+  font-size: 12px;
+  color: #6c757d;
+  font-style: italic;
+}
+
+/* ===============================================
+   RESPONSIVE
+   =============================================== */
+@media (max-width: 768px) {
+  .services-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .service-item {
+    padding: 10px;
+  }
+
+  .services-status-compact {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+}
+
+@media (max-width: 480px) {
+  .service-badge {
+    font-size: 10px;
+    padding: 2px 4px;
+  }
+
+  .service-item {
+    padding: 8px;
+  }
+
+  .service-name {
+    font-size: 13px;
+  }
+}
