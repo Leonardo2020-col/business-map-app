@@ -130,16 +130,16 @@ const overlayStyle = {
   backdropFilter: 'blur(5px)'
 };
 
+// ✅ CORREGIDO: Eliminé el maxWidth duplicado
 const contentStyle = {
   background: 'white',
   borderRadius: '12px',
   boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
-  maxWidth: '90vw',
+  maxWidth: '700px', // ✅ Solo una vez - valor más específico
+  width: '100%',
   maxHeight: '90vh',
   overflow: 'auto',
-  animation: 'fadeInScale 0.3s ease-out',
-  width: '100%',
-  maxWidth: '700px'
+  animation: 'fadeInScale 0.3s ease-out'
 };
 
 const headerStyle = {
