@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import Navbar from '../Navbar/Navbar';
+import * as XLSX from 'xlsx';
 import './SystemReports.css';
 
 // ✅ ICONOS MEJORADOS Y CONSISTENTES
@@ -193,77 +194,50 @@ const SystemReports = () => {
     return result.sort((a, b) => b.count - a.count);
   }, [fetchBusinessesData]);
 
-  // ✅ FUNCIÓN DE DESCARGA MEJORADA
+  // ✅ FUNCIÓN DE DESCARGA EXCEL MEJORADA CON SHEETJS
   const downloadExcel = useCallback(async (dataType) => {
     try {
-      console.log(`📥 Descargando reporte: ${dataType}`);
+      console.log(`📥 Descargando reporte Excel: ${dataType}`);
       
-      let data = [];
+      // Crear un nuevo workbook
+      const workbook = XLSX.utils.book_new();
+      
       let filename = '';
+      const currentDate = new Date().toISOString().split('T')[0];
       
       switch(dataType) {
         case 'businesses':
-          data = businessesData.map(business => ({
-            'ID': business.id,
-            'Nombre': business.name || business.business_name,
-            'Tipo': business.business_type,
-            'Dirección': business.address,
-            'Distrito': business.distrito,
-            'Sector': business.sector,
-            'Anexo': business.anexo,
-            'Teléfono': business.phone,
-            'Email': business.email,
-            'Latitud': business.latitude,
-            'Longitud': business.longitude,
-            'Creado por': business.creator?.username || 'N/A',
-            'Fecha creación': business.created_at ? new Date(business.created_at).toLocaleDateString() : 'N/A'
-          }));
-          filename = 'reporte_negocios';
+          await createBusinessesSheet(workbook);
+          filename = `Reporte_Negocios_${currentDate}.xlsx`;
           break;
           
         case 'users':
-          data = usersData.map(user => ({
-            'ID': user.id,
-            'Usuario': user.username,
-            'Nombre completo': user.full_name || 'N/A',
-            'Email': user.email || 'N/A',
-            'Rol': user.role,
-            'Estado': user.is_active ? 'Activo' : 'Inactivo',
-            'Último acceso': user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Nunca',
-            'Fecha registro': new Date(user.created_at).toLocaleDateString()
-          }));
-          filename = 'reporte_usuarios';
+          await createUsersSheet(workbook);
+          filename = `Reporte_Usuarios_${currentDate}.xlsx`;
           break;
           
         case 'geographic':
-          data = geographicData.map(district => ({
-            'Distrito': district.district,
-            'Total negocios': district.totalBusinesses,
-            'Con coordenadas': district.withCoordinates,
-            'Sin coordenadas': district.withoutCoordinates,
-            'Porcentaje con ubicación': district.totalBusinesses > 0 ? 
-              ((district.withCoordinates / district.totalBusinesses) * 100).toFixed(1) + '%' : '0%'
-          }));
-          filename = 'reporte_geografico';
+          await createGeographicSheet(workbook);
+          filename = `Reporte_Geografico_${currentDate}.xlsx`;
           break;
           
         case 'categories':
-          data = categoriesData.map(category => ({
-            'Categoría': category.category,
-            'Cantidad': category.count,
-            'Porcentaje': category.percentage + '%'
-          }));
-          filename = 'reporte_categorias';
+          await createCategoriesSheet(workbook);
+          filename = `Reporte_Categorias_${currentDate}.xlsx`;
+          break;
+
+        case 'complete':
+          await createCompleteReport(workbook);
+          filename = `Reporte_Completo_BusinessMap_${currentDate}.xlsx`;
           break;
           
         default:
           throw new Error('Tipo de reporte no válido');
       }
       
-      // Crear archivo CSV
-      const worksheet = createWorksheet(data);
-      const workbook = createWorkbook(worksheet);
-      downloadWorkbook(workbook, `${filename}_${new Date().toISOString().split('T')[0]}.csv`);
+      // Generar y descargar el archivo
+      XLSX.writeFile(workbook, filename);
+      console.log(`✅ Archivo descargado: ${filename}`);
       
     } catch (error) {
       console.error('❌ Error descargando Excel:', error);
@@ -271,43 +245,156 @@ const SystemReports = () => {
     }
   }, [businessesData, usersData, geographicData, categoriesData]);
 
-  // ✅ FUNCIONES AUXILIARES PARA CSV
-  const createWorksheet = useCallback((data) => {
-    if (!data.length) return '';
-    
-    const headers = Object.keys(data[0]);
-    const csvContent = [
-      headers.join(','),
-      ...data.map(row => 
-        headers.map(header => {
-          const value = row[header] || '';
-          return typeof value === 'string' && (value.includes(',') || value.includes('"')) 
-            ? `"${value.replace(/"/g, '""')}"` 
-            : value;
-        }).join(',')
-      )
-    ].join('\n');
-    
-    return csvContent;
-  }, []);
+  // ✅ CREAR HOJA DE NEGOCIOS
+  const createBusinessesSheet = useCallback((workbook) => {
+    const data = businessesData.map(business => ({
+      'ID': business.id || '',
+      'Nombre del Negocio': business.name || business.business_name || '',
+      'Tipo de Negocio': business.business_type || '',
+      'Dirección': business.address || '',
+      'Distrito': business.distrito || '',
+      'Sector': business.sector || '',
+      'Anexo': business.anexo || '',
+      'Teléfono': business.phone || '',
+      'Email': business.email || '',
+      'Latitud': business.latitude || '',
+      'Longitud': business.longitude || '',
+      'Tiene Ubicación': business.latitude && business.longitude ? 'SÍ' : 'NO',
+      'Creado por': business.creator?.username || 'N/A',
+      'Fecha de Creación': business.created_at ? 
+        new Date(business.created_at).toLocaleDateString('es-PE') : 'N/A',
+      'Estado': business.is_active ? 'Activo' : 'Inactivo'
+    }));
 
-  const createWorkbook = useCallback((worksheet) => {
-    return new Blob(['\ufeff' + worksheet], { 
-      type: 'text/csv;charset=utf-8;' 
-    });
-  }, []);
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    
+    // Configurar ancho de columnas
+    const columnWidths = [
+      { wch: 8 },   // ID
+      { wch: 25 },  // Nombre
+      { wch: 20 },  // Tipo
+      { wch: 30 },  // Dirección
+      { wch: 15 },  // Distrito
+      { wch: 15 },  // Sector
+      { wch: 10 },  // Anexo
+      { wch: 15 },  // Teléfono
+      { wch: 25 },  // Email
+      { wch: 12 },  // Latitud
+      { wch: 12 },  // Longitud
+      { wch: 12 },  // Tiene Ubicación
+      { wch: 15 },  // Creado por
+      { wch: 15 },  // Fecha
+      { wch: 10 }   // Estado
+    ];
+    worksheet['!cols'] = columnWidths;
 
-  const downloadWorkbook = useCallback((blob, filename) => {
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', filename);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  }, []);
+    // Agregar la hoja al workbook
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Negocios');
+  }, [businessesData]);
+
+  // ✅ CREAR HOJA DE USUARIOS
+  const createUsersSheet = useCallback((workbook) => {
+    const data = usersData.map(user => ({
+      'ID': user.id || '',
+      'Nombre de Usuario': user.username || '',
+      'Nombre Completo': user.full_name || 'N/A',
+      'Email': user.email || 'N/A',
+      'Rol': user.role === 'admin' ? 'Administrador' : 'Usuario',
+      'Estado': user.is_active ? 'Activo' : 'Inactivo',
+      'Último Acceso': user.last_login ? 
+        new Date(user.last_login).toLocaleDateString('es-PE') : 'Nunca',
+      'Fecha de Registro': user.created_at ? 
+        new Date(user.created_at).toLocaleDateString('es-PE') : 'N/A',
+      'Negocios Creados': businessesData.filter(b => b.creator?.id === user.id).length
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    
+    // Configurar ancho de columnas
+    worksheet['!cols'] = [
+      { wch: 8 },   // ID
+      { wch: 20 },  // Username
+      { wch: 25 },  // Nombre completo
+      { wch: 30 },  // Email
+      { wch: 15 },  // Rol
+      { wch: 10 },  // Estado
+      { wch: 15 },  // Último acceso
+      { wch: 15 },  // Fecha registro
+      { wch: 12 }   // Negocios creados
+    ];
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Usuarios');
+  }, [usersData, businessesData]);
+
+  // ✅ CREAR HOJA GEOGRÁFICA
+  const createGeographicSheet = useCallback((workbook) => {
+    const data = geographicData.map(district => ({
+      'Distrito': district.district || '',
+      'Total de Negocios': district.totalBusinesses || 0,
+      'Con Coordenadas': district.withCoordinates || 0,
+      'Sin Coordenadas': district.withoutCoordinates || 0,
+      'Porcentaje con Ubicación': district.totalBusinesses > 0 ? 
+        `${((district.withCoordinates / district.totalBusinesses) * 100).toFixed(1)}%` : '0%'
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    
+    // Configurar ancho de columnas
+    worksheet['!cols'] = [
+      { wch: 20 },  // Distrito
+      { wch: 15 },  // Total
+      { wch: 15 },  // Con coordenadas
+      { wch: 15 },  // Sin coordenadas
+      { wch: 18 }   // Porcentaje
+    ];
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Distribución Geográfica');
+  }, [geographicData]);
+
+  // ✅ CREAR HOJA DE CATEGORÍAS
+  const createCategoriesSheet = useCallback((workbook) => {
+    const data = categoriesData.map(category => ({
+      'Categoría': category.category || '',
+      'Cantidad de Negocios': category.count || 0,
+      'Porcentaje del Total': `${category.percentage}%`
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    
+    // Configurar ancho de columnas
+    worksheet['!cols'] = [
+      { wch: 25 },  // Categoría
+      { wch: 18 },  // Cantidad
+      { wch: 18 }   // Porcentaje
+    ];
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Categorías de Negocio');
+  }, [categoriesData]);
+
+  // ✅ CREAR REPORTE COMPLETO (TODAS LAS HOJAS)
+  const createCompleteReport = useCallback(async (workbook) => {
+    // Crear hoja de resumen
+    const summaryData = [
+      { 'Métrica': 'Total de Negocios', 'Valor': businessesData.length },
+      { 'Métrica': 'Total de Usuarios', 'Valor': usersData.length },
+      { 'Métrica': 'Negocios con Ubicación', 'Valor': businessesData.filter(b => b.latitude && b.longitude).length },
+      { 'Métrica': 'Negocios sin Ubicación', 'Valor': businessesData.filter(b => !b.latitude || !b.longitude).length },
+      { 'Métrica': 'Categorías Diferentes', 'Valor': categoriesData.length },
+      { 'Métrica': 'Distritos con Negocios', 'Valor': geographicData.length },
+      { 'Métrica': 'Usuarios Administradores', 'Valor': usersData.filter(u => u.role === 'admin').length },
+      { 'Métrica': 'Usuarios Activos', 'Valor': usersData.filter(u => u.is_active).length }
+    ];
+
+    const summarySheet = XLSX.utils.json_to_sheet(summaryData);
+    summarySheet['!cols'] = [{ wch: 25 }, { wch: 15 }];
+    XLSX.utils.book_append_sheet(workbook, summarySheet, 'Resumen General');
+
+    // Agregar todas las demás hojas
+    createBusinessesSheet(workbook);
+    createUsersSheet(workbook);
+    createGeographicSheet(workbook);
+    createCategoriesSheet(workbook);
+  }, [businessesData, usersData, geographicData, categoriesData]);
 
   if (loading) {
     return (
@@ -334,6 +421,13 @@ const SystemReports = () => {
             <p>Análisis detallado y estadísticas de Business Map</p>
           </div>
           <div className="header-actions">
+            <button 
+              onClick={() => downloadExcel('complete')}
+              className="btn btn-primary"
+              style={{ marginRight: '10px' }}
+            >
+              {ICONS.download} Descargar Reporte Completo
+            </button>
             <button 
               onClick={loadReportsData}
               className="btn btn-secondary"
@@ -450,7 +544,7 @@ const SystemReports = () => {
                   onClick={() => downloadExcel('businesses')}
                   className="btn btn-primary"
                 >
-                  {ICONS.download} Descargar CSV
+                  {ICONS.download} Descargar Excel
                 </button>
               </div>
               
@@ -489,7 +583,7 @@ const SystemReports = () => {
                 {businessesData.length > 50 && (
                   <p className="table-note">
                     Mostrando 50 de {businessesData.length} registros. 
-                    Descarga el CSV para ver todos los datos.
+                    Descarga el Excel para ver todos los datos.
                   </p>
                 )}
               </div>
@@ -505,7 +599,7 @@ const SystemReports = () => {
                   onClick={() => downloadExcel('users')}
                   className="btn btn-primary"
                 >
-                  {ICONS.download} Descargar CSV
+                  {ICONS.download} Descargar Excel
                 </button>
               </div>
               
@@ -555,7 +649,7 @@ const SystemReports = () => {
                   onClick={() => downloadExcel('geographic')}
                   className="btn btn-primary"
                 >
-                  {ICONS.download} Descargar CSV
+                  {ICONS.download} Descargar Excel
                 </button>
               </div>
               
@@ -600,7 +694,7 @@ const SystemReports = () => {
                   onClick={() => downloadExcel('categories')}
                   className="btn btn-primary"
                 >
-                  {ICONS.download} Descargar CSV
+                  {ICONS.download} Descargar Excel
                 </button>
               </div>
               
