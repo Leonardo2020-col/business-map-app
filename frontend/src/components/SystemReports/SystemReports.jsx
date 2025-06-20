@@ -1,7 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import Navbar from '../Navbar/Navbar';
 import './SystemReports.css';
+
+// ✅ ICONOS MEJORADOS Y CONSISTENTES
+const ICONS = {
+  reports: '📊',
+  overview: '📈',
+  businesses: '🏢',
+  users: '👥',
+  geographic: '🗺️',
+  categories: '🏷️',
+  refresh: '🔄',
+  download: '📥',
+  warning: '⚠️',
+  success: '✅',
+  error: '❌',
+  location: '📍',
+  admin: '👑',
+  user: '👤',
+  active: '✅',
+  inactive: '❌'
+};
 
 const SystemReports = () => {
   const { user } = useAuth();
@@ -17,44 +37,43 @@ const SystemReports = () => {
   const [categoriesData, setCategoriesData] = useState([]);
   
   // Estados para filtros
-  const [dateRange, setDateRange] = useState('30'); // días
+  const [dateRange, setDateRange] = useState('30');
   const [selectedDistrict, setSelectedDistrict] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
 
-  // Configuración de API
-  const getApiUrl = () => {
+  // ✅ FUNCIÓN MEMOIZADA PARA API URL
+  const apiUrl = useMemo(() => {
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
       return 'http://localhost:5000/api';
     } else {
       return import.meta.env.VITE_API_URL || '/api';
     }
-  };
+  }, []);
+
+  // ✅ HEADERS MEMOIZADOS
+  const apiHeaders = useMemo(() => ({
+    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+    'Content-Type': 'application/json'
+  }), []);
 
   useEffect(() => {
     loadReportsData();
   }, [dateRange, selectedDistrict, selectedCategory]);
 
-  const loadReportsData = async () => {
+  const loadReportsData = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
       
       console.log('📊 Cargando datos de reportes...');
-      
-      const apiUrl = getApiUrl();
-      const token = localStorage.getItem('token');
-      const headers = {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      };
 
       // Cargar datos en paralelo
       const [overview, businesses, users, geographic, categories] = await Promise.all([
-        fetchOverviewData(apiUrl, headers),
-        fetchBusinessesData(apiUrl, headers),
-        fetchUsersData(apiUrl, headers),
-        fetchGeographicData(apiUrl, headers),
-        fetchCategoriesData(apiUrl, headers)
+        fetchOverviewData(),
+        fetchBusinessesData(),
+        fetchUsersData(),
+        fetchGeographicData(),
+        fetchCategoriesData()
       ]);
 
       setOverviewData(overview);
@@ -71,12 +90,14 @@ const SystemReports = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiUrl, apiHeaders, dateRange, selectedDistrict, selectedCategory]);
 
-  // Funciones para cargar datos específicos
-  const fetchOverviewData = async (apiUrl, headers) => {
+  // ✅ FUNCIONES DE FETCH OPTIMIZADAS
+  const fetchOverviewData = useCallback(async () => {
     try {
-      const response = await fetch(`${apiUrl}/businesses/stats/summary`, { headers });
+      const response = await fetch(`${apiUrl}/businesses/stats/summary`, { 
+        headers: apiHeaders 
+      });
       if (response.ok) {
         const data = await response.json();
         return data.data || {};
@@ -85,28 +106,31 @@ const SystemReports = () => {
       console.warn('No se pudieron cargar estadísticas generales');
     }
     return {
-      totalBusinesses: 0,
-      businessesWithIssues: 0,
-      businessesOk: 0
+      total: 0,
+      servicesStatus: { withIssues: 0, ok: 0 }
     };
-  };
+  }, [apiUrl, apiHeaders]);
 
-  const fetchBusinessesData = async (apiUrl, headers) => {
+  const fetchBusinessesData = useCallback(async () => {
     try {
-      const response = await fetch(`${apiUrl}/businesses?limit=1000`, { headers });
+      const response = await fetch(`${apiUrl}/businesses?limit=1000`, { 
+        headers: apiHeaders 
+      });
       if (response.ok) {
         const data = await response.json();
-        return data.data || [];
+        return data.success ? data.data : (Array.isArray(data.data) ? data.data : []);
       }
     } catch (error) {
       console.warn('No se pudieron cargar datos de negocios');
     }
     return [];
-  };
+  }, [apiUrl, apiHeaders]);
 
-  const fetchUsersData = async (apiUrl, headers) => {
+  const fetchUsersData = useCallback(async () => {
     try {
-      const response = await fetch(`${apiUrl}/admin/users`, { headers });
+      const response = await fetch(`${apiUrl}/admin/users`, { 
+        headers: apiHeaders 
+      });
       if (response.ok) {
         const data = await response.json();
         return data.data || [];
@@ -115,16 +139,15 @@ const SystemReports = () => {
       console.warn('No se pudieron cargar datos de usuarios');
     }
     return [];
-  };
+  }, [apiUrl, apiHeaders]);
 
-  const fetchGeographicData = async (apiUrl, headers) => {
-    // Procesar datos geográficos de negocios
-    const businesses = await fetchBusinessesData(apiUrl, headers);
+  const fetchGeographicData = useCallback(async () => {
+    const businesses = await fetchBusinessesData();
     const districts = {};
     
     businesses.forEach(business => {
-      // ✅ USAR EL CAMPO CORRECTO 'distrito' de la BD
-      const district = business.distrito || business.district || 'Sin distrito';
+      // ✅ USAR CAMPO CORRECTO 'distrito'
+      const district = business.distrito || 'Sin distrito';
       
       if (!districts[district]) {
         districts[district] = {
@@ -143,11 +166,10 @@ const SystemReports = () => {
     });
 
     return Object.values(districts).sort((a, b) => b.totalBusinesses - a.totalBusinesses);
-  };
+  }, [fetchBusinessesData]);
 
-  const fetchCategoriesData = async (apiUrl, headers) => {
-    // Procesar datos de categorías de negocios
-    const businesses = await fetchBusinessesData(apiUrl, headers);
+  const fetchCategoriesData = useCallback(async () => {
+    const businesses = await fetchBusinessesData();
     const categories = {};
     
     businesses.forEach(business => {
@@ -169,10 +191,10 @@ const SystemReports = () => {
     }));
 
     return result.sort((a, b) => b.count - a.count);
-  };
+  }, [fetchBusinessesData]);
 
-  // Función para descargar Excel
-  const downloadExcel = async (dataType) => {
+  // ✅ FUNCIÓN DE DESCARGA MEJORADA
+  const downloadExcel = useCallback(async (dataType) => {
     try {
       console.log(`📥 Descargando reporte: ${dataType}`);
       
@@ -183,11 +205,12 @@ const SystemReports = () => {
         case 'businesses':
           data = businessesData.map(business => ({
             'ID': business.id,
-            'Nombre': business.business_name || business.name,
+            'Nombre': business.name || business.business_name,
             'Tipo': business.business_type,
             'Dirección': business.address,
-            'Distrito': business.district,
+            'Distrito': business.distrito,
             'Sector': business.sector,
+            'Anexo': business.anexo,
             'Teléfono': business.phone,
             'Email': business.email,
             'Latitud': business.latitude,
@@ -237,19 +260,19 @@ const SystemReports = () => {
           throw new Error('Tipo de reporte no válido');
       }
       
-      // Crear archivo Excel usando la API nativa del navegador
+      // Crear archivo CSV
       const worksheet = createWorksheet(data);
       const workbook = createWorkbook(worksheet);
-      downloadWorkbook(workbook, `${filename}_${new Date().toISOString().split('T')[0]}.xlsx`);
+      downloadWorkbook(workbook, `${filename}_${new Date().toISOString().split('T')[0]}.csv`);
       
     } catch (error) {
       console.error('❌ Error descargando Excel:', error);
       alert('Error al generar el archivo Excel');
     }
-  };
+  }, [businessesData, usersData, geographicData, categoriesData]);
 
-  // Funciones auxiliares para crear Excel (usando CSV como fallback)
-  const createWorksheet = (data) => {
+  // ✅ FUNCIONES AUXILIARES PARA CSV
+  const createWorksheet = useCallback((data) => {
     if (!data.length) return '';
     
     const headers = Object.keys(data[0]);
@@ -258,7 +281,6 @@ const SystemReports = () => {
       ...data.map(row => 
         headers.map(header => {
           const value = row[header] || '';
-          // Escapar comillas y manejar comas
           return typeof value === 'string' && (value.includes(',') || value.includes('"')) 
             ? `"${value.replace(/"/g, '""')}"` 
             : value;
@@ -267,25 +289,25 @@ const SystemReports = () => {
     ].join('\n');
     
     return csvContent;
-  };
+  }, []);
 
-  const createWorkbook = (worksheet) => {
+  const createWorkbook = useCallback((worksheet) => {
     return new Blob(['\ufeff' + worksheet], { 
       type: 'text/csv;charset=utf-8;' 
     });
-  };
+  }, []);
 
-  const downloadWorkbook = (blob, filename) => {
+  const downloadWorkbook = useCallback((blob, filename) => {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', filename.replace('.xlsx', '.csv'));
+    link.setAttribute('download', filename);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  };
+  }, []);
 
   if (loading) {
     return (
@@ -308,7 +330,7 @@ const SystemReports = () => {
         {/* Header */}
         <div className="reports-header">
           <div className="header-content">
-            <h1>📊 Reportes del Sistema</h1>
+            <h1>{ICONS.reports} Reportes del Sistema</h1>
             <p>Análisis detallado y estadísticas de Business Map</p>
           </div>
           <div className="header-actions">
@@ -317,7 +339,7 @@ const SystemReports = () => {
               className="btn btn-secondary"
               disabled={loading}
             >
-              🔄 Actualizar
+              {ICONS.refresh} Actualizar
             </button>
           </div>
         </div>
@@ -325,10 +347,10 @@ const SystemReports = () => {
         {/* Error Message */}
         {error && (
           <div className="error-message">
-            <span className="error-icon">⚠️</span>
+            <span className="error-icon">{ICONS.warning}</span>
             <span>{error}</span>
             <button onClick={loadReportsData} className="btn btn-outline">
-              🔄 Reintentar
+              {ICONS.refresh} Reintentar
             </button>
           </div>
         )}
@@ -353,31 +375,31 @@ const SystemReports = () => {
             className={`tab ${activeTab === 'overview' ? 'active' : ''}`}
             onClick={() => setActiveTab('overview')}
           >
-            📈 Resumen General
+            {ICONS.overview} Resumen General
           </button>
           <button 
             className={`tab ${activeTab === 'businesses' ? 'active' : ''}`}
             onClick={() => setActiveTab('businesses')}
           >
-            🏢 Negocios
+            {ICONS.businesses} Negocios
           </button>
           <button 
             className={`tab ${activeTab === 'users' ? 'active' : ''}`}
             onClick={() => setActiveTab('users')}
           >
-            👥 Usuarios
+            {ICONS.users} Usuarios
           </button>
           <button 
             className={`tab ${activeTab === 'geographic' ? 'active' : ''}`}
             onClick={() => setActiveTab('geographic')}
           >
-            🗺️ Geográfico
+            {ICONS.geographic} Geográfico
           </button>
           <button 
             className={`tab ${activeTab === 'categories' ? 'active' : ''}`}
             onClick={() => setActiveTab('categories')}
           >
-            🏷️ Categorías
+            {ICONS.categories} Categorías
           </button>
         </div>
 
@@ -388,28 +410,28 @@ const SystemReports = () => {
             <div className="overview-tab">
               <div className="stats-grid">
                 <div className="stat-card">
-                  <div className="stat-icon">🏢</div>
+                  <div className="stat-icon">{ICONS.businesses}</div>
                   <div className="stat-content">
-                    <h3>{overviewData?.totalBusinesses || 0}</h3>
+                    <h3>{overviewData?.total || businessesData.length}</h3>
                     <p>Total Negocios</p>
                   </div>
                 </div>
                 <div className="stat-card">
-                  <div className="stat-icon">👥</div>
+                  <div className="stat-icon">{ICONS.users}</div>
                   <div className="stat-content">
                     <h3>{usersData.length}</h3>
                     <p>Total Usuarios</p>
                   </div>
                 </div>
                 <div className="stat-card">
-                  <div className="stat-icon">📍</div>
+                  <div className="stat-icon">{ICONS.location}</div>
                   <div className="stat-content">
                     <h3>{businessesData.filter(b => b.latitude && b.longitude).length}</h3>
                     <p>Con Ubicación</p>
                   </div>
                 </div>
                 <div className="stat-card">
-                  <div className="stat-icon">🏷️</div>
+                  <div className="stat-icon">{ICONS.categories}</div>
                   <div className="stat-content">
                     <h3>{categoriesData.length}</h3>
                     <p>Categorías</p>
@@ -423,12 +445,12 @@ const SystemReports = () => {
           {activeTab === 'businesses' && (
             <div className="businesses-tab">
               <div className="tab-header">
-                <h2>📊 Reporte de Negocios</h2>
+                <h2>{ICONS.businesses} Reporte de Negocios</h2>
                 <button 
                   onClick={() => downloadExcel('businesses')}
                   className="btn btn-primary"
                 >
-                  📥 Descargar Excel
+                  {ICONS.download} Descargar CSV
                 </button>
               </div>
               
@@ -448,12 +470,15 @@ const SystemReports = () => {
                   <tbody>
                     {businessesData.slice(0, 50).map(business => (
                       <tr key={business.id}>
-                        <td>{business.business_name || business.name}</td>
+                        <td>{business.name || business.business_name}</td>
                         <td>{business.business_type || 'N/A'}</td>
                         <td>{business.distrito || 'N/A'}</td>
                         <td>{business.sector || 'N/A'}</td>
                         <td>
-                          {business.latitude && business.longitude ? '✅' : '❌'}
+                          {business.latitude && business.longitude 
+                            ? <span className="positive">{ICONS.success}</span>
+                            : <span className="negative">{ICONS.error}</span>
+                          }
                         </td>
                         <td>{business.creator?.username || 'N/A'}</td>
                         <td>{business.created_at ? new Date(business.created_at).toLocaleDateString() : 'N/A'}</td>
@@ -464,7 +489,7 @@ const SystemReports = () => {
                 {businessesData.length > 50 && (
                   <p className="table-note">
                     Mostrando 50 de {businessesData.length} registros. 
-                    Descarga el Excel para ver todos los datos.
+                    Descarga el CSV para ver todos los datos.
                   </p>
                 )}
               </div>
@@ -475,12 +500,12 @@ const SystemReports = () => {
           {activeTab === 'users' && (
             <div className="users-tab">
               <div className="tab-header">
-                <h2>👥 Reporte de Usuarios</h2>
+                <h2>{ICONS.users} Reporte de Usuarios</h2>
                 <button 
                   onClick={() => downloadExcel('users')}
                   className="btn btn-primary"
                 >
-                  📥 Descargar Excel
+                  {ICONS.download} Descargar CSV
                 </button>
               </div>
               
@@ -504,12 +529,12 @@ const SystemReports = () => {
                         <td>{user.email || 'N/A'}</td>
                         <td>
                           <span className={`role-badge ${user.role}`}>
-                            {user.role === 'admin' ? '👑 Admin' : '👤 Usuario'}
+                            {user.role === 'admin' ? `${ICONS.admin} Admin` : `${ICONS.user} Usuario`}
                           </span>
                         </td>
                         <td>
                           <span className={`status-badge ${user.is_active ? 'active' : 'inactive'}`}>
-                            {user.is_active ? '✅ Activo' : '❌ Inactivo'}
+                            {user.is_active ? `${ICONS.active} Activo` : `${ICONS.inactive} Inactivo`}
                           </span>
                         </td>
                         <td>{user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Nunca'}</td>
@@ -525,12 +550,12 @@ const SystemReports = () => {
           {activeTab === 'geographic' && (
             <div className="geographic-tab">
               <div className="tab-header">
-                <h2>🗺️ Distribución Geográfica</h2>
+                <h2>{ICONS.geographic} Distribución Geográfica</h2>
                 <button 
                   onClick={() => downloadExcel('geographic')}
                   className="btn btn-primary"
                 >
-                  📥 Descargar Excel
+                  {ICONS.download} Descargar CSV
                 </button>
               </div>
               
@@ -570,12 +595,12 @@ const SystemReports = () => {
           {activeTab === 'categories' && (
             <div className="categories-tab">
               <div className="tab-header">
-                <h2>🏷️ Distribución por Categorías</h2>
+                <h2>{ICONS.categories} Distribución por Categorías</h2>
                 <button 
                   onClick={() => downloadExcel('categories')}
                   className="btn btn-primary"
                 >
-                  📥 Descargar Excel
+                  {ICONS.download} Descargar CSV
                 </button>
               </div>
               
