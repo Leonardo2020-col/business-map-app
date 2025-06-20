@@ -280,17 +280,9 @@ const Login = () => {
         </form>
 
         <div className="login-footer">
-          <p>¿No tienes cuenta? <Link to="/register">Regístrate aquí</Link></p>
-          <p><Link to="/forgot-password">¿Olvidaste tu contraseña?</Link></p>
           
-          {/* Credenciales de prueba en desarrollo */}
-          {import.meta.env.DEV && (
-            <div className="dev-credentials">
-              <p><strong>👤 Credenciales de prueba:</strong></p>
-              <p>Admin: <code>admin / admin123</code></p>
-              <p>Usuario: <code>user / user123</code></p>
-            </div>
-          )}
+          
+          
         </div>
       </div>
     </div>
