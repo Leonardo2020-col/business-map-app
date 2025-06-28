@@ -4,20 +4,80 @@ import { useAuth } from './useAuth';
 export const usePermissions = () => {
   const { user } = useAuth();
 
+  // ✅ FUNCIÓN PRINCIPAL PARA VERIFICAR PERMISOS
   const hasPermission = (permission) => {
-    if (!user) return false;
-    
-    // Los administradores tienen todos los permisos
-    if (user.role === 'admin') return true;
-    
-    // Verificar permisos específicos
-    if (user.permissions && Array.isArray(user.permissions)) {
-      return user.permissions.includes(permission);
+    if (!user) {
+      console.log(`🔒 Sin usuario autenticado para permiso: ${permission}`);
+      return false;
     }
     
+    // Los administradores tienen todos los permisos
+    if (user.role === 'admin') {
+      console.log(`👑 Admin tiene permiso automático: ${permission}`);
+      return true;
+    }
+    
+    // Verificar permisos específicos del usuario
+    if (user.permissions && Array.isArray(user.permissions)) {
+      const hasIt = user.permissions.includes(permission);
+      console.log(`🔍 Verificando ${permission} para ${user.username}: ${hasIt ? 'SÍ' : 'NO'}`);
+      console.log(`🔑 Permisos disponibles:`, user.permissions);
+      return hasIt;
+    }
+    
+    console.log(`❌ Usuario ${user.username} sin permisos definidos`);
     return false;
   };
 
+  // ✅ PERMISOS ESPECÍFICOS PARA EL MAPA
+  const canViewMap = () => {
+    return hasPermission('map:view');
+  };
+
+  // ✅ PERMISOS ESPECÍFICOS PARA NEGOCIOS
+  const canViewBusinesses = () => {
+    return hasPermission('business:read');
+  };
+
+  const canCreateBusinesses = () => {
+    return hasPermission('business:create');
+  };
+
+  const canEditBusinesses = () => {
+    return hasPermission('business:edit');
+  };
+
+  const canDeleteBusinesses = () => {
+    return hasPermission('business:delete');
+  };
+
+  // ✅ PERMISOS ESPECÍFICOS PARA USUARIOS
+  const canViewUsers = () => {
+    return hasPermission('user:read');
+  };
+
+  const canCreateUsers = () => {
+    return hasPermission('user:create');
+  };
+
+  const canEditUsers = () => {
+    return hasPermission('user:edit');
+  };
+
+  const canDeleteUsers = () => {
+    return hasPermission('user:delete');
+  };
+
+  // ✅ PERMISOS ESPECÍFICOS PARA ADMIN
+  const canAccessAdminPanel = () => {
+    return hasPermission('admin:panel') || user?.role === 'admin';
+  };
+
+  const canViewReports = () => {
+    return hasPermission('reports:view');
+  };
+
+  // ✅ FUNCIÓN HELPER PARA MÚLTIPLES PERMISOS
   const hasAnyPermission = (permissions) => {
     return permissions.some(permission => hasPermission(permission));
   };
@@ -26,174 +86,135 @@ export const usePermissions = () => {
     return permissions.every(permission => hasPermission(permission));
   };
 
-  // Permisos específicos para negocios
-  const canViewBusinesses = () => hasPermission('business:read');
-  const canCreateBusinesses = () => hasPermission('business:create');
-  const canEditBusinesses = () => hasPermission('business:edit');
-  const canDeleteBusinesses = () => hasPermission('business:delete');
-  
-  // Permisos específicos para usuarios
-  const canViewUsers = () => hasPermission('user:read');
-  const canCreateUsers = () => hasPermission('user:create');
-  const canEditUsers = () => hasPermission('user:edit');
-  const canDeleteUsers = () => hasPermission('user:delete');
-  
-  // Permisos específicos para admin
-  const canAccessAdminPanel = () => hasPermission('admin:panel') || user?.role === 'admin';
-  const canViewReports = () => hasPermission('reports:view');
-  const canViewMap = () => hasPermission('map:view');
+  // ✅ FUNCIÓN PARA DEBUGGING
+  const debugPermissions = () => {
+    if (!user) {
+      console.log('🔒 No hay usuario autenticado');
+      return;
+    }
+
+    console.log('=== DEBUG PERMISOS ===');
+    console.log('👤 Usuario:', user.username);
+    console.log('🎭 Rol:', user.role);
+    console.log('🔑 Permisos:', user.permissions);
+    console.log('');
+    console.log('📋 Verificaciones:');
+    console.log('  🗺️ Ver mapa:', canViewMap());
+    console.log('  🏢 Ver negocios:', canViewBusinesses());
+    console.log('  ➕ Crear negocios:', canCreateBusinesses());
+    console.log('  ✏️ Editar negocios:', canEditBusinesses());
+    console.log('  🗑️ Eliminar negocios:', canDeleteBusinesses());
+    console.log('  👥 Ver usuarios:', canViewUsers());
+    console.log('  ⚙️ Panel admin:', canAccessAdminPanel());
+    console.log('==================');
+  };
 
   return {
+    // Función principal
     hasPermission,
-    hasAnyPermission,
-    hasAllPermissions,
-    // Permisos de negocios
+    
+    // Permisos específicos - Mapa
+    canViewMap,
+    
+    // Permisos específicos - Negocios
     canViewBusinesses,
     canCreateBusinesses,
     canEditBusinesses,
     canDeleteBusinesses,
-    // Permisos de usuarios
+    
+    // Permisos específicos - Usuarios
     canViewUsers,
     canCreateUsers,
     canEditUsers,
     canDeleteUsers,
-    // Permisos generales
+    
+    // Permisos específicos - Admin
     canAccessAdminPanel,
     canViewReports,
-    canViewMap,
+    
+    // Helpers
+    hasAnyPermission,
+    hasAllPermissions,
+    
+    // Debug
+    debugPermissions,
+    
     // Info del usuario
     isAdmin: user?.role === 'admin',
-    userPermissions: user?.permissions || []
+    userPermissions: user?.permissions || [],
+    currentUser: user
   };
 };
 
-// components/BusinessList.jsx - Ejemplo de uso
-import React from 'react';
-import { usePermissions } from '../hooks/usePermissions';
+// ✅ COMPONENTE WRAPPER PARA PERMISOS
+export const PermissionWrapper = ({ permission, children, fallback = null }) => {
+  const { hasPermission } = usePermissions();
 
-const BusinessList = () => {
-  const { 
-    canViewBusinesses, 
-    canCreateBusinesses, 
-    canEditBusinesses, 
-    canDeleteBusinesses 
-  } = usePermissions();
-
-  // Si no puede ver negocios, no mostrar nada
-  if (!canViewBusinesses()) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <h3 className="text-lg font-medium text-gray-900">Acceso Denegado</h3>
-          <p className="text-gray-500">No tienes permisos para ver los negocios</p>
-        </div>
-      </div>
-    );
+  if (!hasPermission(permission)) {
+    return fallback;
   }
 
-  return (
-    <div className="space-y-4">
-      {/* Botón de crear solo si tiene permisos */}
-      {canCreateBusinesses() && (
-        <button 
-          className="btn-primary"
-          onClick={() => {/* lógica para crear */}}
-        >
-          ➕ Crear Negocio
-        </button>
-      )}
-
-      {/* Lista de negocios */}
-      <div className="grid gap-4">
-        {businesses.map(business => (
-          <div key={business.id} className="business-card">
-            <h3>{business.name}</h3>
-            <p>{business.address}</p>
-            
-            {/* Botones de acción según permisos */}
-            <div className="flex gap-2 mt-4">
-              {canEditBusinesses() && (
-                <button 
-                  className="btn-secondary"
-                  onClick={() => editBusiness(business.id)}
-                >
-                  ✏️ Editar
-                </button>
-              )}
-              
-              {canDeleteBusinesses() && (
-                <button 
-                  className="btn-danger"
-                  onClick={() => deleteBusiness(business.id)}
-                >
-                  🗑️ Eliminar
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  return children;
 };
 
-// components/Navigation.jsx - Ejemplo de navegación con permisos
-import React from 'react';
-import { usePermissions } from '../hooks/usePermissions';
+// ✅ HOOK PARA RUTAS PROTEGIDAS
+export const useRoutePermissions = () => {
+  const { user } = useAuth();
+  const permissions = usePermissions();
 
-const Navigation = () => {
-  const { 
-    canViewBusinesses, 
-    canAccessAdminPanel, 
-    canViewUsers,
-    canViewReports,
-    canViewMap 
-  } = usePermissions();
+  const getAccessibleRoutes = () => {
+    const routes = [];
 
-  return (
-    <nav className="bg-gray-800 text-white">
-      <div className="flex space-x-4">
-        {/* Siempre mostrar Dashboard */}
-        <a href="/dashboard" className="nav-link">
-          🏠 Dashboard
-        </a>
+    // Dashboard siempre accesible si está autenticado
+    if (user) {
+      routes.push({ path: '/dashboard', name: 'Dashboard', icon: '🏠' });
+    }
 
-        {/* Solo mostrar si puede ver negocios */}
-        {canViewBusinesses() && (
-          <a href="/businesses" className="nav-link">
-            🏢 Negocios
-          </a>
-        )}
+    // Rutas según permisos
+    if (permissions.canViewMap()) {
+      routes.push({ path: '/map', name: 'Mapa', icon: '🗺️' });
+    }
 
-        {/* Solo mostrar si puede ver el mapa */}
-        {canViewMap() && (
-          <a href="/map" className="nav-link">
-            🗺️ Mapa
-          </a>
-        )}
+    if (permissions.canViewBusinesses()) {
+      routes.push({ path: '/businesses', name: 'Negocios', icon: '🏢' });
+    }
 
-        {/* Solo mostrar si puede ver reportes */}
-        {canViewReports() && (
-          <a href="/reports" className="nav-link">
-            📊 Reportes
-          </a>
-        )}
+    if (permissions.canViewUsers()) {
+      routes.push({ path: '/users', name: 'Usuarios', icon: '👥' });
+    }
 
-        {/* Solo mostrar si puede acceder al panel de admin */}
-        {canAccessAdminPanel() && (
-          <div className="nav-dropdown">
-            <span className="nav-link">⚙️ Administración</span>
-            <div className="dropdown-content">
-              {canViewUsers() && (
-                <a href="/admin/users">👥 Usuarios</a>
-              )}
-              <a href="/admin/settings">⚙️ Configuración</a>
-            </div>
-          </div>
-        )}
-      </div>
-    </nav>
-  );
+    if (permissions.canAccessAdminPanel()) {
+      routes.push({ path: '/admin', name: 'Administración', icon: '⚙️' });
+    }
+
+    if (permissions.canViewReports()) {
+      routes.push({ path: '/reports', name: 'Reportes', icon: '📊' });
+    }
+
+    return routes;
+  };
+
+  const canAccessRoute = (routePath) => {
+    const routePermissions = {
+      '/map': 'map:view',
+      '/businesses': 'business:read',
+      '/users': 'user:read',
+      '/admin': 'admin:panel',
+      '/reports': 'reports:view'
+    };
+
+    const requiredPermission = routePermissions[routePath];
+    
+    if (!requiredPermission) {
+      // Ruta sin permisos específicos (como dashboard)
+      return !!user;
+    }
+
+    return permissions.hasPermission(requiredPermission);
+  };
+
+  return {
+    getAccessibleRoutes,
+    canAccessRoute
+  };
 };
-
-export { BusinessList, Navigation };

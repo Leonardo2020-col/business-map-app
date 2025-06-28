@@ -47,74 +47,106 @@ const GoogleMapComponent = () => {
   const [map, setMap] = useState(null);
   const [center, setCenter] = useState(defaultCenter);
 
-  // ✅ FUNCIÓN CORREGIDA PARA USAR .env PRIMERO
-const loadBusinessesDirectly = async () => {
-  try {
-    console.log('🔄 Cargando negocios directamente...');
+  // ✅ VERIFICACIÓN DE PERMISOS
+  const hasMapPermission = () => {
+    if (!user) return false;
     
-    const token = localStorage.getItem('token');
-    const headers = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json'
-    };
+    // Administradores pueden ver todo
+    if (user.role === 'admin') return true;
     
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-      console.log('🔐 Token incluido en headers');
+    // Verificar permiso específico de mapa
+    if (user.permissions && Array.isArray(user.permissions)) {
+      return user.permissions.includes('map:view');
     }
     
-    // ✅ PRIORIDAD: 1. .env, 2. Detección automática
-    let apiUrl;
+    return false;
+  };
+
+  const hasBusinessReadPermission = () => {
+    if (!user) return false;
     
-    if (import.meta.env.VITE_API_URL) {
-      // Si hay URL configurada en .env, usarla
-      apiUrl = import.meta.env.VITE_API_URL;
-      console.log('📝 Usando URL desde .env:', apiUrl);
-    } else {
-      // Fallback: detección automática
-      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        apiUrl = 'http://localhost:5000/api';
-        console.log('🏠 Fallback: Entorno local detectado');
-      } else {
-        apiUrl = '/api';
-        console.log('🌍 Fallback: Entorno de producción detectado');
+    // Administradores pueden ver todo
+    if (user.role === 'admin') return true;
+    
+    // Verificar permiso específico de negocios
+    if (user.permissions && Array.isArray(user.permissions)) {
+      return user.permissions.includes('business:read');
+    }
+    
+    return false;
+  };
+
+  // ✅ FUNCIÓN PARA CARGAR NEGOCIOS SOLO SI TIENE PERMISOS
+  const loadBusinessesDirectly = async () => {
+    // Verificar permisos antes de hacer la petición
+    if (!hasBusinessReadPermission()) {
+      console.log('⚠️ Usuario no tiene permiso business:read, no cargando negocios');
+      return { success: true, data: [] }; // Retornar estructura válida pero vacía
+    }
+
+    try {
+      console.log('🔄 Cargando negocios (usuario tiene permisos)...');
+      
+      const token = localStorage.getItem('token');
+      const headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      };
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        console.log('🔐 Token incluido en headers');
       }
+      
+      // ✅ PRIORIDAD: 1. .env, 2. Detección automática
+      let apiUrl;
+      
+      if (import.meta.env.VITE_API_URL) {
+        apiUrl = import.meta.env.VITE_API_URL;
+        console.log('📝 Usando URL desde .env:', apiUrl);
+      } else {
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+          apiUrl = 'http://localhost:5000/api';
+          console.log('🏠 Fallback: Entorno local detectado');
+        } else {
+          apiUrl = '/api';
+          console.log('🌍 Fallback: Entorno de producción detectado');
+        }
+      }
+      
+      const fullUrl = `${apiUrl}/businesses`;
+      console.log('🌐 URL final para petición:', fullUrl);
+      
+      const response = await fetch(fullUrl, {
+        method: 'GET',
+        headers,
+        credentials: 'include'
+      });
+      
+      console.log('📡 Response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Error response:', errorText);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('✅ Datos recibidos:', data);
+      
+      return data;
+      
+    } catch (error) {
+      console.error('❌ Error en fetch directo:', error);
+      throw error;
     }
-    
-    const fullUrl = `${apiUrl}/businesses`;
-    console.log('🌐 URL final para petición:', fullUrl);
-    
-    const response = await fetch(fullUrl, {
-      method: 'GET',
-      headers,
-      credentials: 'include'
-    });
-    
-    console.log('📡 Response status:', response.status);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ Error response:', errorText);
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    
-    const data = await response.json();
-    console.log('✅ Datos recibidos:', data);
-    
-    return data;
-    
-  } catch (error) {
-    console.error('❌ Error en fetch directo:', error);
-    throw error;
-  }
-};
+  };
 
   // ✅ FUNCIÓN MEJORADA PARA PROCESAR NEGOCIOS
   const processBusinessData = (businessResponse) => {
     let allBusinesses = [];
     
     if (businessResponse) {
-      // Manejar diferentes estructuras de respuesta
       if (businessResponse.success && Array.isArray(businessResponse.data)) {
         allBusinesses = businessResponse.data;
         console.log('✅ Estructura: {success: true, data: [...]}');
@@ -134,7 +166,6 @@ const loadBusinessesDirectly = async () => {
     
     // ✅ FILTRADO MEJORADO CON NOMBRES CORRECTOS
     const businessesWithCoords = allBusinesses.filter(business => {
-      // Manejar diferentes nombres de campos
       const businessName = business.business_name || business.name || `Negocio ${business.id}`;
       
       const hasCoords = business.latitude && business.longitude;
@@ -165,34 +196,53 @@ const loadBusinessesDirectly = async () => {
     return businessesWithCoords;
   };
 
-  // ✅ FUNCIÓN MEJORADA PARA CARGAR DATOS DEL MAPA
+  // ✅ FUNCIÓN MEJORADA PARA CARGAR DATOS DEL MAPA CON VALIDACIÓN DE PERMISOS
   const loadMapData = async () => {
     try {
       setLoading(true);
       setError('');
 
       console.log('🗺️ Iniciando carga de datos del mapa...');
+      console.log('👤 Usuario:', user?.username);
+      console.log('🔑 Permisos:', user?.permissions);
+      console.log('🔍 Puede ver mapa:', hasMapPermission());
+      console.log('🔍 Puede ver negocios:', hasBusinessReadPermission());
 
-      // Método 1: Usar fetch directo (más confiable)
+      // Verificar permiso de mapa
+      if (!hasMapPermission()) {
+        console.log('❌ Usuario no tiene permiso para ver el mapa');
+        setError('No tienes permisos para acceder al mapa');
+        return;
+      }
+
+      // Solo cargar negocios si tiene permiso
       let businessResponse = null;
       let method = '';
       
-      try {
-        businessResponse = await loadBusinessesDirectly();
-        method = 'fetch directo';
-      } catch (fetchError) {
-        console.log('⚠️ Fetch directo falló, intentando con businessAPI...');
-        
-        // Método 2: Fallback a businessAPI
+      if (hasBusinessReadPermission()) {
+        console.log('📍 Cargando negocios en el mapa...');
         try {
-          const apiResponse = await businessAPI.getAll({ limit: 500 });
-          businessResponse = apiResponse.data || apiResponse; // axios puede wrappear en .data
-          method = 'businessAPI';
-          console.log('✅ businessAPI funcionó:', businessResponse);
-        } catch (apiError) {
-          console.error('❌ businessAPI también falló:', apiError);
-          throw fetchError; // Lanzar el error original
+          businessResponse = await loadBusinessesDirectly();
+          method = 'fetch directo';
+        } catch (fetchError) {
+          console.log('⚠️ Fetch directo falló, intentando con businessAPI...');
+          
+          try {
+            const apiResponse = await businessAPI.getAll({ limit: 500 });
+            businessResponse = apiResponse.data || apiResponse;
+            method = 'businessAPI';
+            console.log('✅ businessAPI funcionó:', businessResponse);
+          } catch (apiError) {
+            console.error('❌ businessAPI también falló:', apiError);
+            // No lanzar error, simplemente mostrar mapa vacío
+            businessResponse = { success: true, data: [] };
+            method = 'vacío (sin permisos o error)';
+          }
         }
+      } else {
+        console.log('⚠️ Usuario no tiene permiso para ver negocios, mostrando mapa vacío');
+        businessResponse = { success: true, data: [] };
+        method = 'vacío (sin permisos)';
       }
 
       console.log(`📊 Datos cargados usando: ${method}`);
@@ -217,7 +267,6 @@ const loadBusinessesDirectly = async () => {
 
       // ✅ CARGAR TIPOS DE NEGOCIO MEJORADO
       try {
-        // Método 1: API
         const typesResponse = await businessAPI.getTypes();
         if (typesResponse?.data?.success && Array.isArray(typesResponse.data.data)) {
           const apiTypes = typesResponse.data.data.map(type => 
@@ -230,7 +279,6 @@ const loadBusinessesDirectly = async () => {
         }
       } catch (typesError) {
         console.warn('⚠️ No se pudieron cargar tipos desde API:', typesError.message);
-        // Método 2: Extraer desde negocios
         const uniqueTypes = [...new Set(
           processedBusinesses
             .map(b => b.business_type)
@@ -245,7 +293,6 @@ const loadBusinessesDirectly = async () => {
       const errorMessage = error.message || 'Error desconocido';
       setError(`Error cargando datos: ${errorMessage}`);
       
-      // Intentar mostrar algunos datos de debug
       console.log('🔍 Debug info:', {
         hostname: window.location.hostname,
         pathname: window.location.pathname,
@@ -274,8 +321,10 @@ const loadBusinessesDirectly = async () => {
 
   // Cargar datos al montar el componente
   useEffect(() => {
-    loadMapData();
-  }, []);
+    if (user) {
+      loadMapData();
+    }
+  }, [user]);
 
   const onMapLoad = useCallback((mapInstance) => {
     console.log('✅ Google Maps cargado exitosamente');
@@ -304,7 +353,6 @@ const loadBusinessesDirectly = async () => {
     }
   };
 
-  // ✅ FUNCIÓN MEJORADA PARA ICONOS
   const getMarkerIcon = (businessType) => {
     const icons = {
       'restaurant': '🍽️',
@@ -333,9 +381,8 @@ const loadBusinessesDirectly = async () => {
     };
     
     const lowerType = (businessType || '').toLowerCase();
-    let icon = '📍'; // Default icon
+    let icon = '📍';
     
-    // Buscar coincidencias más flexibles
     for (const [key, emoji] of Object.entries(icons)) {
       if (lowerType.includes(key) || key.includes(lowerType)) {
         icon = emoji;
@@ -373,6 +420,51 @@ const loadBusinessesDirectly = async () => {
     }
   };
 
+  // ✅ VERIFICAR AUTENTICACIÓN
+  if (!user) {
+    return (
+      <div className="map-container">
+        <div className="map-loading">
+          <div className="loading-spinner"></div>
+          <h2>🔐 Verificando autenticación...</h2>
+          <p>Un momento por favor...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ✅ VERIFICAR PERMISOS DE MAPA
+  if (!hasMapPermission()) {
+    return (
+      <div className="map-container">
+        <div className="map-error">
+          <h2>🚫 Acceso Denegado</h2>
+          <p>No tienes permisos para acceder al mapa.</p>
+          <div style={{
+            background: '#fff3cd',
+            border: '1px solid #ffeaa7',
+            borderRadius: '8px',
+            padding: '15px',
+            margin: '20px 0',
+            textAlign: 'left'
+          }}>
+            <p style={{ margin: 0, fontSize: '14px', color: '#856404' }}>
+              <strong>Permisos necesarios:</strong> map:view<br/>
+              <strong>Tus permisos:</strong> {user.permissions?.join(', ') || 'Ninguno'}<br/>
+              <strong>Contacta al administrador</strong> para obtener acceso al mapa.
+            </p>
+          </div>
+          <button 
+            onClick={() => window.history.back()}
+            className="btn btn-primary"
+          >
+            ⬅️ Volver
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // Si no hay API key, mostrar mensaje
   if (!GOOGLE_MAPS_API_KEY) {
     return (
@@ -392,7 +484,7 @@ const loadBusinessesDirectly = async () => {
         <div className="map-loading">
           <div className="loading-spinner"></div>
           <h2>🗺️ Cargando mapa...</h2>
-          <p>Cargando negocios...</p>
+          <p>Verificando permisos y cargando datos...</p>
         </div>
       </div>
     );
@@ -443,28 +535,55 @@ const loadBusinessesDirectly = async () => {
         loadingElement={<div>Cargando Google Maps...</div>}
       >
         <div className="map-layout-clean">
-          {/* Controles integrados - PARTE INFERIOR */}
+          {/* Mensaje de permisos limitados */}
+          {!hasBusinessReadPermission() && (
+            <div style={{
+              position: 'absolute',
+              top: '10px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              background: '#fff3cd',
+              border: '1px solid #ffeaa7',
+              borderRadius: '8px',
+              padding: '10px 15px',
+              zIndex: 5,
+              fontSize: '14px',
+              color: '#856404',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+            }}>
+              ⚠️ <strong>Permisos limitados:</strong> Puedes ver el mapa, pero no los negocios. 
+              Necesitas el permiso "business:read" para ver los negocios.
+            </div>
+          )}
+
+          {/* Controles integrados */}
           <div className="floating-controls">
-            {/* Filtro de tipo */}
-            <select
-              value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
-              className="type-filter"
-            >
-              <option value="all">Todos ({businesses.length})</option>
-              {businessTypes.map((type) => {
-                const count = businesses.filter(b => b.business_type === type).length;
-                return (
-                  <option key={type} value={type}>
-                    {type} ({count})
-                  </option>
-                );
-              })}
-            </select>
+            {/* Filtro de tipo - Solo si puede ver negocios */}
+            {hasBusinessReadPermission() && (
+              <select
+                value={selectedType}
+                onChange={(e) => setSelectedType(e.target.value)}
+                className="type-filter"
+              >
+                <option value="all">Todos ({businesses.length})</option>
+                {businessTypes.map((type) => {
+                  const count = businesses.filter(b => b.business_type === type).length;
+                  return (
+                    <option key={type} value={type}>
+                      {type} ({count})
+                    </option>
+                  );
+                })}
+              </select>
+            )}
             
             {/* Estadísticas integradas */}
             <div className="map-stats">
-              Mostrando {filteredBusinesses.length} de {businesses.length} negocios
+              {hasBusinessReadPermission() ? (
+                `Mostrando ${filteredBusinesses.length} de ${businesses.length} negocios`
+              ) : (
+                `Mapa disponible - Sin permisos para negocios`
+              )}
             </div>
             
             {/* Botones de control */}
@@ -518,8 +637,8 @@ const loadBusinessesDirectly = async () => {
               onLoad={onMapLoad}
               onError={onMapError}
             >
-              {/* Marcadores de negocios */}
-              {filteredBusinesses.map((business) => {
+              {/* Marcadores de negocios - Solo si tiene permisos */}
+              {hasBusinessReadPermission() && filteredBusinesses.map((business) => {
                 const lat = parseFloat(business.latitude);
                 const lng = parseFloat(business.longitude);
                 
@@ -539,8 +658,8 @@ const loadBusinessesDirectly = async () => {
                 );
               })}
 
-              {/* Ventana de información */}
-              {selectedBusiness && (
+              {/* Ventana de información - Solo si tiene permisos */}
+              {hasBusinessReadPermission() && selectedBusiness && (
                 <InfoWindow
                   position={{
                     lat: parseFloat(selectedBusiness.latitude),
@@ -565,14 +684,6 @@ const loadBusinessesDirectly = async () => {
                       <p><strong>Email:</strong> 
                         <a href={`mailto:${selectedBusiness.email}`}>
                           {selectedBusiness.email}
-                        </a>
-                      </p>
-                    )}
-                    
-                    {selectedBusiness.website && (
-                      <p><strong>Sitio web:</strong> 
-                        <a href={selectedBusiness.website} target="_blank" rel="noopener noreferrer">
-                          Visitar
                         </a>
                       </p>
                     )}
