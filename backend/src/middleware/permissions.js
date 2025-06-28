@@ -12,52 +12,31 @@ const User = require('../models/User');
  */
 const checkUserPermission = async (userId, permission) => {
   try {
-    // ✅ OBTENER USUARIO CON PERMISOS
     const user = await User.findByPk(userId, {
       attributes: ['id', 'role', 'is_active', 'permissions']
     });
 
     if (!user || !user.is_active) {
+      console.log(`❌ Usuario ${userId} no encontrado o inactivo`);
       return false;
     }
 
-    // Los administradores tienen todos los permisos
+    // ✅ CORRECCIÓN: Los administradores tienen todos los permisos
     if (user.role === 'admin') {
+      console.log(`✅ Usuario ${userId} es admin - permiso concedido automáticamente`);
       return true;
     }
 
-    // ✅ VERIFICAR PRIMERO EN LA COLUMNA permissions (JSON)
+    // ✅ VERIFICAR PERMISOS ESPECÍFICOS PARA USUARIOS REGULARES
     if (user.permissions && Array.isArray(user.permissions)) {
-      return user.permissions.includes(permission);
+      const hasPermission = user.permissions.includes(permission);
+      console.log(`🔍 Usuario ${userId} - Permiso ${permission}: ${hasPermission ? 'SÍ' : 'NO'}`);
+      console.log(`🔑 Permisos del usuario:`, user.permissions);
+      return hasPermission;
     }
 
-    // ✅ VERIFICAR EN LA TABLA user_permissions (usando las funciones SQL existentes)
-    try {
-      const result = await user.sequelize.query(
-        `SELECT user_has_permission(:userId, :permission::permission_type) as has_permission`,
-        {
-          replacements: { userId, permission },
-          type: user.sequelize.QueryTypes.SELECT
-        }
-      );
-
-      return result[0]?.has_permission || false;
-    } catch (sqlError) {
-      // Si falla la función SQL, verificar directamente en la tabla
-      const permissionRecord = await user.sequelize.query(
-        `SELECT 1 FROM user_permissions 
-         WHERE user_id = :userId 
-         AND permission = :permission::permission_type 
-         AND is_active = true 
-         AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)`,
-        {
-          replacements: { userId, permission },
-          type: user.sequelize.QueryTypes.SELECT
-        }
-      );
-
-      return permissionRecord.length > 0;
-    }
+    console.log(`❌ Usuario ${userId} no tiene permisos definidos`);
+    return false;
 
   } catch (error) {
     console.error('Error verificando permiso:', error);
@@ -72,7 +51,6 @@ const checkUserPermission = async (userId, permission) => {
  */
 const getUserPermissions = async (userId) => {
   try {
-    // ✅ OBTENER USUARIO CON PERMISOS
     const user = await User.findByPk(userId, {
       attributes: ['id', 'role', 'is_active', 'permissions']
     });
@@ -86,38 +64,12 @@ const getUserPermissions = async (userId) => {
       return ['ALL'];
     }
 
-    // ✅ VERIFICAR PRIMERO EN LA COLUMNA permissions (JSON)
+    // Verificar permisos específicos para usuarios regulares
     if (user.permissions && Array.isArray(user.permissions)) {
       return user.permissions;
     }
 
-    // ✅ VERIFICAR EN LA TABLA user_permissions
-    try {
-      const permissions = await user.sequelize.query(
-        `SELECT permission::text FROM get_user_permissions(:userId)`,
-        {
-          replacements: { userId },
-          type: user.sequelize.QueryTypes.SELECT
-        }
-      );
-
-      return permissions.map(p => p.permission);
-    } catch (sqlError) {
-      // Si falla la función SQL, consultar directamente la tabla
-      const permissions = await user.sequelize.query(
-        `SELECT permission::text as permission 
-         FROM user_permissions 
-         WHERE user_id = :userId 
-         AND is_active = true 
-         AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)`,
-        {
-          replacements: { userId },
-          type: user.sequelize.QueryTypes.SELECT
-        }
-      );
-
-      return permissions.map(p => p.permission);
-    }
+    return [];
 
   } catch (error) {
     console.error('Error obteniendo permisos del usuario:', error);
@@ -136,6 +88,7 @@ const requirePermission = (permission) => {
       const userId = req.user?.id;
       
       if (!userId) {
+        console.log(`❌ requirePermission: No hay usuario autenticado`);
         return res.status(401).json({
           success: false,
           message: 'Token de autenticación requerido',
@@ -143,10 +96,12 @@ const requirePermission = (permission) => {
         });
       }
 
-      // ✅ USAR LA FUNCIÓN HELPER CORREGIDA
+      console.log(`🔐 requirePermission: Verificando permiso ${permission} para usuario ${userId}`);
+
       const hasPermission = await checkUserPermission(userId, permission);
 
       if (!hasPermission) {
+        console.log(`❌ requirePermission: Permiso ${permission} denegado para usuario ${userId}`);
         return res.status(403).json({
           success: false,
           message: `No tienes permisos para: ${permission}`,
@@ -155,6 +110,7 @@ const requirePermission = (permission) => {
         });
       }
 
+      console.log(`✅ requirePermission: Permiso ${permission} concedido para usuario ${userId}`);
       req.user.hasPermission = true;
       next();
 
@@ -187,7 +143,6 @@ const requireAllPermissions = (permissions) => {
         });
       }
 
-      // ✅ VERIFICAR TODOS LOS PERMISOS USANDO LA FUNCIÓN HELPER
       const permissionChecks = await Promise.all(
         permissions.map(async (permission) => {
           const hasPermission = await checkUserPermission(userId, permission);
@@ -243,7 +198,6 @@ const requireAnyPermission = (permissions) => {
         });
       }
 
-      // ✅ VERIFICAR SI TIENE AL MENOS UNO DE LOS PERMISOS
       for (const permission of permissions) {
         const hasPermission = await checkUserPermission(userId, permission);
         if (hasPermission) {
@@ -297,7 +251,7 @@ const attachUserPermissions = async (req, res, next) => {
  */
 const validateBusinessPermissions = (action) => {
   const permissionMap = {
-    'view': 'business:read',      // ✅ USAR FORMATO DE BD
+    'view': 'business:read',
     'create': 'business:create',
     'edit': 'business:edit',
     'delete': 'business:delete'
@@ -318,7 +272,7 @@ const validateBusinessPermissions = (action) => {
  */
 const validateUserPermissions = (action) => {
   const permissionMap = {
-    'view': 'user:read',      // ✅ USAR FORMATO DE BD
+    'view': 'user:read',
     'create': 'user:create',
     'edit': 'user:edit',
     'delete': 'user:delete'
@@ -334,22 +288,22 @@ const validateUserPermissions = (action) => {
 };
 
 // ===============================================
-// CONSTANTES DE PERMISOS - ✅ FORMATO DE BD
+// CONSTANTES DE PERMISOS
 // ===============================================
 const PERMISSIONS = {
-  // Permisos de negocios (formato BD)
+  // Permisos de negocios
   BUSINESS_READ: 'business:read',
   BUSINESS_CREATE: 'business:create',
   BUSINESS_EDIT: 'business:edit',
   BUSINESS_DELETE: 'business:delete',
   
-  // Permisos de usuarios (formato BD)
+  // Permisos de usuarios
   USER_READ: 'user:read',
   USER_CREATE: 'user:create',
   USER_EDIT: 'user:edit',
   USER_DELETE: 'user:delete',
   
-  // Permisos generales (formato BD)
+  // Permisos generales
   ADMIN_PANEL: 'admin:panel',
   REPORTS_VIEW: 'reports:view',
   MAP_VIEW: 'map:view'
