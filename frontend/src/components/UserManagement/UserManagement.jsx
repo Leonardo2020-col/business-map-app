@@ -229,40 +229,59 @@ const UserManagement = () => {
   const processUserPermissions = useCallback((user) => {
     const currentPermissions = {};
     
-    console.log('🔍 Debug - Usuario completo:', user);
+    console.log('🔍 Debug - Usuario completo:', JSON.stringify(user, null, 2));
+    console.log('🔍 Debug - Tipo de permisos:', typeof user.permissions);
     console.log('🔍 Debug - Permisos del usuario:', user.permissions);
+    console.log('🔍 Debug - AVAILABLE_PERMISSIONS:', AVAILABLE_PERMISSIONS);
     
     if (user.permissions) {
       let permissionsArray = [];
       
       // Manejar diferentes formatos de permisos
       if (Array.isArray(user.permissions)) {
-        // Si ya es un array de strings
+        console.log('🔍 Debug - Permisos son array');
         permissionsArray = user.permissions;
       } else if (typeof user.permissions === 'string') {
-        try {
-          // Si es un string JSON, parsearlo
-          const parsed = JSON.parse(user.permissions);
-          permissionsArray = Array.isArray(parsed) ? parsed : [];
-        } catch (e) {
+        console.log('🔍 Debug - Permisos son string');
+        if (user.permissions.startsWith('[') || user.permissions.startsWith('{')) {
+          try {
+            // Si es un string JSON, parsearlo
+            const parsed = JSON.parse(user.permissions);
+            permissionsArray = Array.isArray(parsed) ? parsed : Object.keys(parsed).filter(key => parsed[key]);
+            console.log('🔍 Debug - Permisos parseados desde JSON:', permissionsArray);
+          } catch (e) {
+            console.log('🔍 Debug - Error parseando JSON:', e);
+            permissionsArray = [];
+          }
+        } else {
           // Si no es JSON válido, dividir por comas
           permissionsArray = user.permissions.split(',').map(p => p.trim()).filter(p => p);
+          console.log('🔍 Debug - Permisos divididos por coma:', permissionsArray);
         }
-      } else if (typeof user.permissions === 'object') {
+      } else if (typeof user.permissions === 'object' && user.permissions !== null) {
+        console.log('🔍 Debug - Permisos son objeto');
         // Si es un objeto, extraer las claves que tienen valor true
         permissionsArray = Object.keys(user.permissions).filter(key => user.permissions[key]);
       }
       
-      console.log('🔍 Debug - Permisos procesados:', permissionsArray);
+      console.log('🔍 Debug - Permisos procesados (array):', permissionsArray);
       
       // Marcar permisos activos
       permissionsArray.forEach(perm => {
         // Limpiar el permiso de espacios y caracteres raros
-        const cleanPerm = typeof perm === 'string' ? perm.trim() : perm;
+        const cleanPerm = typeof perm === 'string' ? perm.trim() : String(perm).trim();
+        console.log(`🔍 Debug - Procesando permiso: "${cleanPerm}"`);
+        
         if (AVAILABLE_PERMISSIONS[cleanPerm]) {
           currentPermissions[cleanPerm] = true;
+          console.log(`✅ Debug - Permiso "${cleanPerm}" marcado como true`);
+        } else {
+          console.log(`❌ Debug - Permiso "${cleanPerm}" NO encontrado en AVAILABLE_PERMISSIONS`);
+          console.log('🔍 Debug - Permisos disponibles:', Object.keys(AVAILABLE_PERMISSIONS));
         }
       });
+    } else {
+      console.log('🔍 Debug - Usuario sin permisos');
     }
     
     console.log('🔍 Debug - Permisos finales:', currentPermissions);
@@ -283,34 +302,41 @@ const UserManagement = () => {
       is_active: user.is_active
     });
     
-    // Si el usuario no tiene todos los permisos cargados, cargarlos desde la API
+    // Siempre cargar los permisos detallados desde la API
     let userWithPermissions = user;
     
-    if (!user.permissions || (Array.isArray(user.permissions) && user.permissions.length === 0)) {
-      try {
-        console.log('🔍 Debug - Cargando permisos desde API...');
-        const response = await fetch(`/api/admin/users/${user.id}`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (response.ok) {
-          const userData = await response.json();
-          userWithPermissions = userData.data || userData;
-          console.log('🔍 Debug - Usuario con permisos desde API:', userWithPermissions);
+    try {
+      console.log('🔍 Debug - Cargando permisos desde API para usuario ID:', user.id);
+      const response = await fetch(`/api/admin/users/${user.id}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
         }
-      } catch (error) {
-        console.error('Error cargando permisos del usuario:', error);
+      });
+      
+      if (response.ok) {
+        const userData = await response.json();
+        userWithPermissions = userData.data || userData;
+        console.log('🔍 Debug - Respuesta completa de la API:', JSON.stringify(userData, null, 2));
+        console.log('🔍 Debug - Usuario con permisos desde API:', userWithPermissions);
+      } else {
+        console.log('❌ Debug - Error en respuesta de API:', response.status, response.statusText);
+        const errorText = await response.text();
+        console.log('❌ Debug - Error text:', errorText);
       }
+    } catch (error) {
+      console.error('❌ Debug - Error cargando permisos del usuario:', error);
     }
     
     // Procesar permisos del usuario
     const currentPermissions = processUserPermissions(userWithPermissions);
+    console.log('🔍 Debug - Estableciendo permisos en estado:', currentPermissions);
     setUserPermissions(currentPermissions);
     
-    setShowEditModal(true);
+    // Pequeño delay para asegurar que el estado se actualice antes de abrir el modal
+    setTimeout(() => {
+      setShowEditModal(true);
+    }, 100);
   }, [processUserPermissions]);
 
   const openCreateModal = useCallback(() => {
@@ -756,7 +782,17 @@ const UserFormFields = ({ formData, onInputChange, isEditing, selectedUser, curr
 
 // ✅ COMPONENTE SECCIÓN DE PERMISOS MEJORADO
 const PermissionsSection = ({ userPermissions, availablePermissions, onPermissionChange }) => {
-  console.log('🔍 Debug - PermissionsSection userPermissions:', userPermissions);
+  console.log('🔍 Debug - PermissionsSection renderizando...');
+  console.log('🔍 Debug - userPermissions recibidos:', userPermissions);
+  console.log('🔍 Debug - availablePermissions:', Object.keys(availablePermissions));
+  
+  // Verificar si userPermissions es un objeto válido
+  const isValidPermissions = userPermissions && typeof userPermissions === 'object';
+  console.log('🔍 Debug - ¿Permisos válidos?:', isValidPermissions);
+  
+  if (!isValidPermissions) {
+    console.log('⚠️ Debug - userPermissions no es válido, usando objeto vacío');
+  }
   
   return (
     <div className="form-section">
@@ -767,20 +803,30 @@ const PermissionsSection = ({ userPermissions, availablePermissions, onPermissio
       
       <div className="permissions-grid">
         {Object.entries(availablePermissions).map(([perm, label]) => {
-          const isChecked = Boolean(userPermissions[perm]);
-          console.log(`🔍 Debug - Permiso ${perm}: ${isChecked}`);
+          const isChecked = isValidPermissions ? Boolean(userPermissions[perm]) : false;
+          console.log(`🔍 Debug - Permiso ${perm}: ${isChecked} (valor: ${userPermissions[perm]})`);
           
           return (
             <label key={perm} className="permission-item">
               <input
                 type="checkbox"
                 checked={isChecked}
-                onChange={() => onPermissionChange(perm)}
+                onChange={() => {
+                  console.log(`🔍 Debug - Cambiando permiso ${perm}`);
+                  onPermissionChange(perm);
+                }}
               />
               <span>{label}</span>
             </label>
           );
         })}
+      </div>
+      
+      {/* Debug info - remover en producción */}
+      <div style={{background: '#f0f0f0', padding: '10px', marginTop: '10px', fontSize: '12px', fontFamily: 'monospace'}}>
+        <strong>🐛 Debug Info:</strong><br/>
+        userPermissions: {JSON.stringify(userPermissions)}<br/>
+        Permisos marcados: {Object.entries(userPermissions || {}).filter(([k,v]) => v).map(([k]) => k).join(', ') || 'ninguno'}
       </div>
     </div>
   );
