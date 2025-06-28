@@ -33,10 +33,15 @@ const usePermissions = () => {
       return true;
     }
     
-    const result = user.permissions?.includes(permission) || false;
+    // ✅ PROTEGER CONTRA PERMISOS MALFORMADOS
+    const userPermissions = Array.isArray(user.permissions) ? user.permissions : [];
+    const result = userPermissions.includes(permission);
+    
     console.log('🔍 hasPermission check:', {
       permission,
-      userPermissions: user.permissions,
+      userPermissions,
+      userPermissionsType: typeof user.permissions,
+      isArray: Array.isArray(user.permissions),
       result
     });
     
@@ -106,10 +111,12 @@ const usePermissions = () => {
   };
 
   const canCreateBusiness = () => {
+    if (!user) return false;
     return hasPermission('business:create');
   };
 
   const canViewBusinesses = () => {
+    if (!user) return false;
     return hasPermission('business:read');
   };
 
@@ -342,19 +349,6 @@ const BusinessCard = ({
           >
             🗑️ Eliminar
           </button>
-          
-          <button
-            onClick={canView ? () => navigate(`/businesses/${business.id}`) : undefined}
-            className={`btn btn-sm ${!canView ? 'disabled' : ''}`}
-            disabled={!canView}
-            style={{ 
-              background: canView ? '#17a2b8' : '#6c757d', 
-              color: 'white' 
-            }}
-            title={canView ? "Ver detalles" : "Sin permiso de lectura"}
-          >
-            👁️ Ver
-          </button>
         </div>
       )}
 
@@ -464,7 +458,7 @@ const BusinessTableBase = ({
   const navigate = useNavigate();
   const permissions = usePermissions(); // ✅ USAR PERMISOS
 
-  // ✅ VERIFICAR SI PUEDE VER NEGOCIOS
+// ✅ VERIFICAR SI PUEDE VER NEGOCIOS
   if (!permissions.canViewBusinesses()) {
     return (
       <div className="table-empty">
@@ -481,7 +475,14 @@ const BusinessTableBase = ({
         }}>
           <p style={{ margin: 0, fontSize: '14px', color: '#856404' }}>
             <strong>Permisos necesarios:</strong> business:read<br/>
-            <strong>Tus permisos:</strong> {permissions.user?.permissions?.join(', ') || 'Ninguno'}
+            <strong>Tus permisos:</strong> {
+              Array.isArray(permissions.user?.permissions) 
+                ? permissions.user.permissions.join(', ') || 'Ninguno'
+                : `Malformados: ${typeof permissions.user?.permissions} - ${JSON.stringify(permissions.user?.permissions)}`
+            }<br/>
+            {!Array.isArray(permissions.user?.permissions) && (
+              <><strong style={{color: '#dc3545'}}>⚠️ Error:</strong> Los permisos deben ser un array, no {typeof permissions.user?.permissions}</>
+            )}
           </p>
         </div>
       </div>
@@ -740,19 +741,6 @@ const BusinessTableRow = ({
               title={getDeleteTooltip()}
             >
               🗑️
-            </button>
-            
-            <button
-              onClick={canView ? () => window.open(`/businesses/${business.id}`, '_blank') : undefined}
-              className={`btn btn-sm ${!canView ? 'disabled' : ''}`}
-              disabled={!canView}
-              style={{ 
-                background: canView ? '#17a2b8' : '#6c757d', 
-                color: 'white' 
-              }}
-              title={canView ? "Ver detalles" : "Sin permiso de lectura"}
-            >
-              👁️
             </button>
           </div>
           

@@ -1515,3 +1515,159 @@
   font-style: italic;
   color: #6c757d;
 }
+
+/* ============================================================================
+   ESTILOS PARA BOTONES DESHABILITADOS - BusinessTable.css
+   ============================================================================ */
+
+/* Estilos generales para botones deshabilitados */
+.btn.disabled,
+.btn:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  background-color: #6c757d !important;
+  border-color: #6c757d !important;
+  color: #fff !important;
+}
+
+/* Botones específicos deshabilitados */
+.btn-edit.disabled,
+.btn-edit:disabled {
+  background-color: #6c757d !important;
+  border-color: #6c757d !important;
+}
+
+.btn-delete.disabled,
+.btn-delete:disabled {
+  background-color: #6c757d !important;
+  border-color: #6c757d !important;
+}
+
+/* Hover states para botones deshabilitados (sin efecto) */
+.btn.disabled:hover,
+.btn:disabled:hover {
+  opacity: 0.5 !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Tooltips para botones deshabilitados */
+.btn.disabled[title],
+.btn:disabled[title] {
+  position: relative;
+}
+
+/* Estilos para action-buttons con botones deshabilitados */
+.action-buttons .btn.disabled {
+  margin: 0 2px;
+}
+
+/* Cards - botones deshabilitados */
+.business-card-actions .btn.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: #6c757d !important;
+  border-color: #6c757d !important;
+}
+
+.business-card-actions .btn.disabled:hover {
+  background-color: #6c757d !important;
+  border-color: #6c757d !important;
+  transform: none;
+}
+
+/* Responsive - botones deshabilitados en móvil */
+@media (max-width: 768px) {
+  .business-card-actions .btn.disabled {
+    padding: 8px 12px;
+    font-size: 14px;
+  }
+}
+
+/* Estados de focus para accesibilidad */
+.btn.disabled:focus,
+.btn:disabled:focus {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+/* Mejorar contraste para tooltips informativos */
+.btn.disabled[title]:after,
+.btn:disabled[title]:after {
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #333;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+  z-index: 1000;
+}
+
+.btn.disabled:hover[title]:after,
+.btn:disabled:hover[title]:after {
+  opacity: 1;
+}
+
+/* Ajustes específicos para la tabla */
+.business-table .actions-cell .btn.disabled {
+  min-width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Indicador visual para botones sin permisos */
+.btn.disabled::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 8px;
+  height: 8px;
+  background-color: #dc3545;
+  border-radius: 50%;
+  border: 1px solid white;
+  font-size: 8px;
+  display: none; /* Activar solo si se desea un indicador visual */
+}
+
+/* Estados hover mejorados para botones habilitados */
+.btn:not(.disabled):not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+/* Mejorar el contraste de texto en botones deshabilitados */
+.btn.disabled .emoji,
+.btn:disabled .emoji {
+  opacity: 0.7;
+}
+
+/* Separación entre botones en la tabla */
+.action-buttons {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Mensaje de estado para desarrollo */
+.action-buttons small {
+  display: block;
+  text-align: center;
+  margin-top: 2px;
+  font-style: italic;
+  color: #6c757d;
+}
