@@ -265,14 +265,12 @@ const BusinessCard = ({
   const getEditTooltip = () => {
     if (canEdit) return "Editar negocio";
     if (!permissions.hasPermission('business:edit')) return "Sin permiso de edición";
-    if (String(business.created_by) !== String(permissions.user?.id)) return "Solo puedes editar negocios que creaste";
     return "No puedes editar este negocio";
   };
 
   const getDeleteTooltip = () => {
     if (canDelete) return "Eliminar negocio";
     if (!permissions.hasPermission('business:delete')) return "Sin permiso de eliminación";
-    if (String(business.created_by) !== String(permissions.user?.id)) return "Solo puedes eliminar negocios que creaste";
     return "No puedes eliminar este negocio";
   };
 
@@ -375,8 +373,8 @@ const BusinessCard = ({
           Usuario: {permissions.user?.username} ({permissions.user?.role})<br/>
           Permisos: {permissions.user?.permissions?.join(', ') || 'Ninguno'}<br/>
           Propietario: {String(business.created_by) === String(permissions.user?.id) ? 'Sí' : 'No'}<br/>
-          Puede editar: {canEdit ? 'Sí' : 'No'}<br/>
-          Puede eliminar: {canDelete ? 'Sí' : 'No'}
+          Puede editar: {canEdit ? 'Sí' : 'No'} (solo requiere permiso)<br/>
+          Puede eliminar: {canDelete ? 'Sí' : 'No'} (solo requiere permiso)
         </div>
       )}
     </div>
@@ -767,11 +765,10 @@ const BusinessTableRow = ({
               textAlign: 'center'
             }}>
               E:{canEdit ? '✅' : '❌'} D:{canDelete ? '✅' : '❌'} 
-              O:{String(business.created_by) === String(permissions.user?.id) ? '✅' : '❌'}
+              P:{String(business.created_by) === String(permissions.user?.id) ? '✅' : '❌'}
               <br />
               <small style={{ fontSize: '8px' }}>
-                {!canEdit && permissions.hasPermission('business:edit') && 'No propietario'}
-                {!canEdit && !permissions.hasPermission('business:edit') && 'Sin permiso editar'}
+                Solo requiere permiso (no propiedad)
               </small>
             </div>
           )}
@@ -1186,7 +1183,7 @@ const downloadCSV = (content, filename) => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  }//
+  }
 };
 
 // ============================================================================
