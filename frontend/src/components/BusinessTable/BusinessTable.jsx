@@ -11,6 +11,18 @@ import './BusinessTable.css';
 const usePermissions = () => {
   const { user } = useAuth();
 
+  // ✅ AGREGAR LOG PARA VERIFICAR QUE SE EJECUTA
+  React.useEffect(() => {
+    console.log('🎯 usePermissions ejecutándose con usuario:', {
+      user: user ? {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        permissions: user.permissions
+      } : null
+    });
+  }, [user]);
+
   const hasPermission = (permission) => {
     if (!user) {
       console.log('❌ hasPermission: No user for permission:', permission);
@@ -43,13 +55,15 @@ const usePermissions = () => {
     
     // Necesita permiso de editar Y ser propietario
     const hasEditPermission = hasPermission('business:edit');
-    const isOwner = business.created_by === user.id;
+    const isOwner = String(business.created_by) === String(user.id); // ✅ CONVERTIR A STRING PARA COMPARAR
     
     console.log('🔍 canEditBusiness debug:', {
       business: business.name,
       businessId: business.id,
       businessCreatedBy: business.created_by,
+      businessCreatedByType: typeof business.created_by,
       userId: user.id,
+      userIdType: typeof user.id,
       userRole: user.role,
       userPermissions: user.permissions,
       hasEditPermission,
@@ -72,13 +86,15 @@ const usePermissions = () => {
     
     // Necesita permiso de eliminar Y ser propietario
     const hasDeletePermission = hasPermission('business:delete');
-    const isOwner = business.created_by === user.id;
+    const isOwner = String(business.created_by) === String(user.id); // ✅ CONVERTIR A STRING PARA COMPARAR
     
     console.log('🔍 canDeleteBusiness debug:', {
       business: business.name,
       businessId: business.id,
       businessCreatedBy: business.created_by,
+      businessCreatedByType: typeof business.created_by,
       userId: user.id,
+      userIdType: typeof user.id,
       userRole: user.role,
       userPermissions: user.permissions,
       hasDeletePermission,
@@ -249,14 +265,14 @@ const BusinessCard = ({
   const getEditTooltip = () => {
     if (canEdit) return "Editar negocio";
     if (!permissions.hasPermission('business:edit')) return "Sin permiso de edición";
-    if (business.created_by !== permissions.user?.id) return "Solo puedes editar negocios que creaste";
+    if (String(business.created_by) !== String(permissions.user?.id)) return "Solo puedes editar negocios que creaste";
     return "No puedes editar este negocio";
   };
 
   const getDeleteTooltip = () => {
     if (canDelete) return "Eliminar negocio";
     if (!permissions.hasPermission('business:delete')) return "Sin permiso de eliminación";
-    if (business.created_by !== permissions.user?.id) return "Solo puedes eliminar negocios que creaste";
+    if (String(business.created_by) !== String(permissions.user?.id)) return "Solo puedes eliminar negocios que creaste";
     return "No puedes eliminar este negocio";
   };
 
@@ -358,7 +374,7 @@ const BusinessCard = ({
           <strong>Debug Permisos:</strong><br/>
           Usuario: {permissions.user?.username} ({permissions.user?.role})<br/>
           Permisos: {permissions.user?.permissions?.join(', ') || 'Ninguno'}<br/>
-          Propietario: {business.created_by === permissions.user?.id ? 'Sí' : 'No'}<br/>
+          Propietario: {String(business.created_by) === String(permissions.user?.id) ? 'Sí' : 'No'}<br/>
           Puede editar: {canEdit ? 'Sí' : 'No'}<br/>
           Puede eliminar: {canDelete ? 'Sí' : 'No'}
         </div>
@@ -751,7 +767,7 @@ const BusinessTableRow = ({
               textAlign: 'center'
             }}>
               E:{canEdit ? '✅' : '❌'} D:{canDelete ? '✅' : '❌'} 
-              O:{business.created_by === permissions.user?.id ? '✅' : '❌'}
+              O:{String(business.created_by) === String(permissions.user?.id) ? '✅' : '❌'}
               <br />
               <small style={{ fontSize: '8px' }}>
                 {!canEdit && permissions.hasPermission('business:edit') && 'No propietario'}
