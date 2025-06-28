@@ -193,13 +193,27 @@ const BusinessCard = ({
   // ✅ VERIFICAR PERMISOS PARA CADA ACCIÓN
   const canEdit = permissions.canEditBusiness(business);
   const canDelete = permissions.canDeleteBusiness(business);
-  const showAnyAction = showActions && (canEdit || canDelete);
+  const canView = permissions.canViewBusinesses();
+
+  // ✅ GENERAR TOOLTIPS INFORMATIVOS
+  const getEditTooltip = () => {
+    if (canEdit) return "Editar negocio";
+    if (!permissions.hasPermission('business:edit')) return "Sin permiso de edición";
+    if (business.created_by !== permissions.user?.id) return "Solo puedes editar negocios que creaste";
+    return "No puedes editar este negocio";
+  };
+
+  const getDeleteTooltip = () => {
+    if (canDelete) return "Eliminar negocio";
+    if (!permissions.hasPermission('business:delete')) return "Sin permiso de eliminación";
+    if (business.created_by !== permissions.user?.id) return "Solo puedes eliminar negocios que creaste";
+    return "No puedes eliminar este negocio";
+  };
 
   console.log('🔍 BusinessCard permisos:', {
     business: business.name,
     canEdit,
     canDelete,
-    showAnyAction,
     userRole: permissions.user?.role,
     userPermissions: permissions.user?.permissions,
     isOwner: business.created_by === permissions.user?.id
@@ -239,40 +253,39 @@ const BusinessCard = ({
         )}
       </div>
       
-      {/* ✅ MOSTRAR ACCIONES SOLO SI TIENE PERMISOS */}
-      {showAnyAction && (
+      {/* ✅ MOSTRAR ACCIONES SIEMPRE, PERO HABILITADAS/DESHABILITADAS SEGÚN PERMISOS */}
+      {showActions && (
         <div className="business-card-actions">
-          {canEdit && (
-            <button
-              onClick={() => navigate(`/businesses/edit/${business.id}`)}
-              className="btn btn-edit"
-              title="Editar negocio"
-            >
-              ✏️ Editar
-            </button>
-          )}
+          <button
+            onClick={canEdit ? () => navigate(`/businesses/edit/${business.id}`) : undefined}
+            className={`btn btn-edit ${!canEdit ? 'disabled' : ''}`}
+            disabled={!canEdit}
+            title={getEditTooltip()}
+          >
+            ✏️ Editar
+          </button>
           
-          {canDelete && (
-            <button
-              onClick={() => onDelete(business)}
-              className="btn btn-delete"
-              title="Eliminar negocio"
-            >
-              🗑️ Eliminar
-            </button>
-          )}
+          <button
+            onClick={canDelete ? () => onDelete(business) : undefined}
+            className={`btn btn-delete ${!canDelete ? 'disabled' : ''}`}
+            disabled={!canDelete}
+            title={getDeleteTooltip()}
+          >
+            🗑️ Eliminar
+          </button>
           
-          {/* ✅ BOTÓN VER SIEMPRE DISPONIBLE SI PUEDE VER NEGOCIOS */}
-          {permissions.canViewBusinesses() && (
-            <button
-              onClick={() => navigate(`/businesses/${business.id}`)}
-              className="btn btn-sm"
-              style={{ background: '#17a2b8', color: 'white' }}
-              title="Ver detalles"
-            >
-              👁️ Ver
-            </button>
-          )}
+          <button
+            onClick={canView ? () => navigate(`/businesses/${business.id}`) : undefined}
+            className={`btn btn-sm ${!canView ? 'disabled' : ''}`}
+            disabled={!canView}
+            style={{ 
+              background: canView ? '#17a2b8' : '#6c757d', 
+              color: 'white' 
+            }}
+            title={canView ? "Ver detalles" : "Sin permiso de lectura"}
+          >
+            👁️ Ver
+          </button>
         </div>
       )}
 
@@ -525,7 +538,22 @@ const BusinessTableRow = ({
   // ✅ VERIFICAR PERMISOS PARA ACCIONES
   const canEdit = permissions.canEditBusiness(business);
   const canDelete = permissions.canDeleteBusiness(business);
-  const showAnyAction = showActions && (canEdit || canDelete);
+  const canView = permissions.canViewBusinesses();
+
+  // ✅ GENERAR TOOLTIPS INFORMATIVOS
+  const getEditTooltip = () => {
+    if (canEdit) return "Editar negocio";
+    if (!permissions.hasPermission('business:edit')) return "Sin permiso de edición";
+    if (business.created_by !== permissions.user?.id) return "Solo puedes editar negocios que creaste";
+    return "No puedes editar este negocio";
+  };
+
+  const getDeleteTooltip = () => {
+    if (canDelete) return "Eliminar negocio";
+    if (!permissions.hasPermission('business:delete')) return "Sin permiso de eliminación";
+    if (business.created_by !== permissions.user?.id) return "Solo puedes eliminar negocios que creaste";
+    return "No puedes eliminar este negocio";
+  };
 
   return (
     <tr className="business-row">
@@ -623,53 +651,43 @@ const BusinessTableRow = ({
         </td>
       )}
       
-      {/* ✅ ACCIONES CON PERMISOS */}
+      {/* ✅ ACCIONES SIEMPRE VISIBLES, HABILITADAS/DESHABILITADAS SEGÚN PERMISOS */}
       {showActions && (
         <td className="actions-cell">
           <div className="action-buttons">
-            {canEdit && (
-              <button
-                onClick={onEdit}
-                className="btn btn-sm btn-edit"
-                title="Editar negocio"
-              >
-                ✏️
-              </button>
-            )}
-            
-            {canDelete && (
-              <button
-                onClick={onDelete}
-                className="btn btn-sm btn-delete"
-                title="Eliminar negocio"
-              >
-                🗑️
-              </button>
-            )}
-            
-            {/* ✅ BOTÓN VER SIEMPRE DISPONIBLE */}
             <button
-              onClick={() => window.open(`/businesses/${business.id}`, '_blank')}
-              className="btn btn-sm"
-              style={{ background: '#17a2b8', color: 'white' }}
-              title="Ver detalles"
+              onClick={canEdit ? onEdit : undefined}
+              className={`btn btn-sm btn-edit ${!canEdit ? 'disabled' : ''}`}
+              disabled={!canEdit}
+              title={getEditTooltip()}
+            >
+              ✏️
+            </button>
+            
+            <button
+              onClick={canDelete ? onDelete : undefined}
+              className={`btn btn-sm btn-delete ${!canDelete ? 'disabled' : ''}`}
+              disabled={!canDelete}
+              title={getDeleteTooltip()}
+            >
+              🗑️
+            </button>
+            
+            <button
+              onClick={canView ? () => window.open(`/businesses/${business.id}`, '_blank') : undefined}
+              className={`btn btn-sm ${!canView ? 'disabled' : ''}`}
+              disabled={!canView}
+              style={{ 
+                background: canView ? '#17a2b8' : '#6c757d', 
+                color: 'white' 
+              }}
+              title={canView ? "Ver detalles" : "Sin permiso de lectura"}
             >
               👁️
             </button>
-            
-            {/* ✅ MOSTRAR MENSAJE SI NO TIENE PERMISOS */}
-            {!canEdit && !canDelete && (
-              <span style={{ 
-                fontSize: '11px', 
-                color: '#6c757d', 
-                fontStyle: 'italic' 
-              }}>
-                Sin permisos
-              </span>
-            )}
           </div>
           
-          {/* ✅ DEBUG EN DESARROLLO */}
+          {/* ✅ DEBUG EN DESARROLLO - MEJORADO */}
           {process.env.NODE_ENV === 'development' && (
             <div style={{
               fontSize: '9px',
@@ -679,6 +697,11 @@ const BusinessTableRow = ({
             }}>
               E:{canEdit ? '✅' : '❌'} D:{canDelete ? '✅' : '❌'} 
               O:{business.created_by === permissions.user?.id ? '✅' : '❌'}
+              <br />
+              <small style={{ fontSize: '8px' }}>
+                {!canEdit && permissions.hasPermission('business:edit') && 'No propietario'}
+                {!canEdit && !permissions.hasPermission('business:edit') && 'Sin permiso editar'}
+              </small>
             </div>
           )}
         </td>
