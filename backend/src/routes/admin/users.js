@@ -165,19 +165,19 @@ router.get('/', async (req, res) => {
     const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
     const offset = (pageNum - 1) * limitNum;
 
-    // Obtener usuarios
+    // ✅ OBTENER USUARIOS CON PERMISSIONS
     const { count, rows: users } = await User.findAndCountAll({
       where,
       attributes: [
         'id', 'username', 'email', 'full_name', 'role', 
-        'is_active', 'last_login', 'created_at', 'updated_at'
+        'is_active', 'permissions', 'last_login', 'created_at', 'updated_at'
       ],
       order: [[sortField, sortDirection]],
       limit: limitNum,
       offset: offset
     });
 
-    // Para cada usuario, agregar información de permisos
+    // ✅ USAR PERMISOS REALES DE LA BD
     const usersWithPermissions = users.map(user => {
       const userObj = user.toJSON();
       
@@ -185,8 +185,8 @@ router.get('/', async (req, res) => {
         userObj.permissions = ['ALL'];
         userObj.permissions_count = 'ALL';
       } else {
-        userObj.permissions = ['user:read', 'business:read'];
-        userObj.permissions_count = 2;
+        userObj.permissions = user.permissions || [];
+        userObj.permissions_count = (user.permissions || []).length;
       }
       
       return userObj;
@@ -238,10 +238,11 @@ router.get('/:id', async (req, res) => {
       });
     }
 
+    // ✅ INCLUIR PERMISSIONS EN LA CONSULTA
     const user = await User.findByPk(id, {
       attributes: [
         'id', 'username', 'email', 'full_name', 'role', 
-        'is_active', 'last_login', 'created_at', 'updated_at'
+        'is_active', 'permissions', 'last_login', 'created_at', 'updated_at'
       ]
     });
 
@@ -255,16 +256,18 @@ router.get('/:id', async (req, res) => {
 
     const userObj = user.toJSON();
 
-    // Obtener permisos del usuario
+    // ✅ USAR PERMISOS REALES DE LA BD
     if (user.role === 'admin') {
       userObj.permissions = ['ALL'];
     } else {
-      userObj.permissions = ['user:read', 'business:read'];
-      userObj.detailed_permissions = [
-        { permission: 'user:read', granted_at: user.created_at },
-        { permission: 'business:read', granted_at: user.created_at }
-      ];
+      userObj.permissions = user.permissions || [];
+      userObj.detailed_permissions = (user.permissions || []).map(perm => ({
+        permission: perm,
+        granted_at: user.created_at
+      }));
     }
+
+    console.log(`📋 Usuario ${user.username} cargado con permisos:`, userObj.permissions);
 
     res.json({
       success: true,
@@ -295,6 +298,8 @@ router.post('/', async (req, res) => {
       is_active = true,
       permissions = []
     } = req.body;
+
+    console.log('📝 Datos de creación:', { username, email, full_name, role, is_active, permissions });
 
     // Validaciones básicas
     if (!username || !password) {
@@ -351,25 +356,26 @@ router.post('/', async (req, res) => {
     const saltRounds = 12;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    // Crear usuario
+    // ✅ CREAR USUARIO CON PERMISOS
     const newUser = await User.create({
       username,
       email: email || null,
       full_name: full_name || null,
       password: hashedPassword,
       role,
-      is_active
+      is_active,
+      permissions: permissions
     });
 
-    // Obtener el usuario creado (sin password)
+    // ✅ OBTENER USUARIO CREADO CON PERMISOS
     const createdUser = await User.findByPk(newUser.id, {
       attributes: [
         'id', 'username', 'email', 'full_name', 'role', 
-        'is_active', 'created_at'
+        'is_active', 'permissions', 'created_at'
       ]
     });
 
-    console.log(`✅ Usuario creado: ${username} (ID: ${newUser.id})`);
+    console.log(`✅ Usuario creado: ${username} (ID: ${newUser.id}) con permisos:`, permissions);
 
     res.status(201).json({
       success: true,
@@ -408,7 +414,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// PUT /api/admin/users/:id - Actualizar usuario
+// PUT /api/admin/users/:id - Actualizar usuario - ✅ COMPLETAMENTE CORREGIDO
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -421,6 +427,13 @@ router.put('/:id', async (req, res) => {
       is_active,
       permissions = []
     } = req.body;
+
+    // ✅ DEBUG COMPLETO
+    console.log('=== DEBUG BACKEND ===');
+    console.log('ID usuario:', id);
+    console.log('Body completo:', req.body);
+    console.log('Permisos recibidos:', permissions);
+    console.log('Tipo de permisos:', typeof permissions);
 
     if (!/^\d+$/.test(id)) {
       return res.status(400).json({
@@ -459,7 +472,7 @@ router.put('/:id', async (req, res) => {
       }
     }
 
-    // Preparar datos de actualización
+    // ✅ PREPARAR DATOS DE ACTUALIZACIÓN CON PERMISOS
     const updateData = {};
     
     if (username !== undefined) updateData.username = username;
@@ -467,6 +480,12 @@ router.put('/:id', async (req, res) => {
     if (full_name !== undefined) updateData.full_name = full_name || null;
     if (role !== undefined) updateData.role = role;
     if (is_active !== undefined) updateData.is_active = is_active;
+
+    // ✅ AQUÍ ESTÁ LA LÍNEA CRÍTICA QUE FALTABA
+    if (permissions !== undefined) {
+      updateData.permissions = permissions;
+      console.log('✅ Permisos incluidos en updateData:', permissions);
+    }
 
     // Actualizar contraseña si se proporciona
     if (password && password.trim().length > 0) {
@@ -482,18 +501,28 @@ router.put('/:id', async (req, res) => {
       updateData.password = await bcrypt.hash(password, saltRounds);
     }
 
-    // Actualizar usuario
+    console.log('📝 UpdateData completo:', updateData);
+
+    // ✅ ACTUALIZAR USUARIO
     await user.update(updateData);
 
-    // Obtener usuario actualizado
+    console.log('✅ Usuario actualizado en BD');
+
+    // ✅ OBTENER USUARIO ACTUALIZADO CON PERMISOS
     const updatedUser = await User.findByPk(id, {
       attributes: [
         'id', 'username', 'email', 'full_name', 'role', 
-        'is_active', 'last_login', 'updated_at'
+        'is_active', 'permissions', 'last_login', 'updated_at'
       ]
     });
 
-    console.log(`✅ Usuario actualizado: ${updatedUser.username} (ID: ${id})`);
+    console.log('📋 Usuario después de actualizar:', {
+      id: updatedUser.id,
+      username: updatedUser.username,
+      permissions: updatedUser.permissions
+    });
+
+    console.log('=== FIN DEBUG ===');
 
     res.json({
       success: true,
