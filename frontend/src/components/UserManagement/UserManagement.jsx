@@ -225,7 +225,54 @@ const UserManagement = () => {
     }
   }, [loadUsers]);
 
-  const openEditModal = useCallback((user) => {
+  // ✅ FUNCIÓN MEJORADA PARA PROCESAR PERMISOS DE USUARIO
+  const processUserPermissions = useCallback((user) => {
+    const currentPermissions = {};
+    
+    console.log('🔍 Debug - Usuario completo:', user);
+    console.log('🔍 Debug - Permisos del usuario:', user.permissions);
+    
+    if (user.permissions) {
+      let permissionsArray = [];
+      
+      // Manejar diferentes formatos de permisos
+      if (Array.isArray(user.permissions)) {
+        // Si ya es un array de strings
+        permissionsArray = user.permissions;
+      } else if (typeof user.permissions === 'string') {
+        try {
+          // Si es un string JSON, parsearlo
+          const parsed = JSON.parse(user.permissions);
+          permissionsArray = Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+          // Si no es JSON válido, dividir por comas
+          permissionsArray = user.permissions.split(',').map(p => p.trim()).filter(p => p);
+        }
+      } else if (typeof user.permissions === 'object') {
+        // Si es un objeto, extraer las claves que tienen valor true
+        permissionsArray = Object.keys(user.permissions).filter(key => user.permissions[key]);
+      }
+      
+      console.log('🔍 Debug - Permisos procesados:', permissionsArray);
+      
+      // Marcar permisos activos
+      permissionsArray.forEach(perm => {
+        // Limpiar el permiso de espacios y caracteres raros
+        const cleanPerm = typeof perm === 'string' ? perm.trim() : perm;
+        if (AVAILABLE_PERMISSIONS[cleanPerm]) {
+          currentPermissions[cleanPerm] = true;
+        }
+      });
+    }
+    
+    console.log('🔍 Debug - Permisos finales:', currentPermissions);
+    return currentPermissions;
+  }, []);
+
+  // ✅ FUNCIÓN MEJORADA PARA ABRIR MODAL DE EDICIÓN
+  const openEditModal = useCallback(async (user) => {
+    console.log('🔍 Debug - Abriendo modal para usuario:', user);
+    
     setSelectedUser(user);
     setFormData({
       username: user.username,
@@ -236,17 +283,35 @@ const UserManagement = () => {
       is_active: user.is_active
     });
     
-    // Cargar permisos actuales del usuario
-    const currentPermissions = {};
-    if (user.permissions && Array.isArray(user.permissions)) {
-      user.permissions.forEach(perm => {
-        currentPermissions[perm] = true;
-      });
+    // Si el usuario no tiene todos los permisos cargados, cargarlos desde la API
+    let userWithPermissions = user;
+    
+    if (!user.permissions || (Array.isArray(user.permissions) && user.permissions.length === 0)) {
+      try {
+        console.log('🔍 Debug - Cargando permisos desde API...');
+        const response = await fetch(`/api/admin/users/${user.id}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const userData = await response.json();
+          userWithPermissions = userData.data || userData;
+          console.log('🔍 Debug - Usuario con permisos desde API:', userWithPermissions);
+        }
+      } catch (error) {
+        console.error('Error cargando permisos del usuario:', error);
+      }
     }
+    
+    // Procesar permisos del usuario
+    const currentPermissions = processUserPermissions(userWithPermissions);
     setUserPermissions(currentPermissions);
     
     setShowEditModal(true);
-  }, []);
+  }, [processUserPermissions]);
 
   const openCreateModal = useCallback(() => {
     resetForm();
@@ -689,27 +754,36 @@ const UserFormFields = ({ formData, onInputChange, isEditing, selectedUser, curr
   </div>
 );
 
-// ✅ COMPONENTE SECCIÓN DE PERMISOS
-const PermissionsSection = ({ userPermissions, availablePermissions, onPermissionChange }) => (
-  <div className="form-section">
-    <h3>🔐 Permisos Específicos</h3>
-    <p className="permissions-note">
-      Los administradores tienen todos los permisos automáticamente
-    </p>
-    
-    <div className="permissions-grid">
-      {Object.entries(availablePermissions).map(([perm, label]) => (
-        <label key={perm} className="permission-item">
-          <input
-            type="checkbox"
-            checked={userPermissions[perm] || false}
-            onChange={() => onPermissionChange(perm)}
-          />
-          <span>{label}</span>
-        </label>
-      ))}
+// ✅ COMPONENTE SECCIÓN DE PERMISOS MEJORADO
+const PermissionsSection = ({ userPermissions, availablePermissions, onPermissionChange }) => {
+  console.log('🔍 Debug - PermissionsSection userPermissions:', userPermissions);
+  
+  return (
+    <div className="form-section">
+      <h3>🔐 Permisos Específicos</h3>
+      <p className="permissions-note">
+        Los administradores tienen todos los permisos automáticamente
+      </p>
+      
+      <div className="permissions-grid">
+        {Object.entries(availablePermissions).map(([perm, label]) => {
+          const isChecked = Boolean(userPermissions[perm]);
+          console.log(`🔍 Debug - Permiso ${perm}: ${isChecked}`);
+          
+          return (
+            <label key={perm} className="permission-item">
+              <input
+                type="checkbox"
+                checked={isChecked}
+                onChange={() => onPermissionChange(perm)}
+              />
+              <span>{label}</span>
+            </label>
+          );
+        })}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default UserManagement;
