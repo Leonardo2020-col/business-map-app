@@ -17,6 +17,39 @@ const AVAILABLE_PERMISSIONS = {
   'map_view': '🗺️ Ver mapa'
 };
 
+// ✅ MAPEO DE PERMISOS: Base de datos -> Frontend
+const PERMISSION_MAPPING = {
+  // Permisos de negocios
+  'business:read': 'businesses_view',
+  'business:create': 'businesses_create',
+  'business:edit': 'businesses_edit',
+  'business:delete': 'businesses_delete',
+  
+  // Permisos de usuarios
+  'user:read': 'users_view',
+  'user:create': 'users_create',
+  'user:edit': 'users_edit',
+  'user:delete': 'users_delete',
+  
+  // Permisos adicionales
+  'admin:panel': 'admin_panel',
+  'reports:view': 'reports_view',
+  'map:view': 'map_view',
+  
+  // También mantener compatibilidad con nombres nuevos
+  'businesses_view': 'businesses_view',
+  'businesses_create': 'businesses_create',
+  'businesses_edit': 'businesses_edit',
+  'businesses_delete': 'businesses_delete',
+  'users_view': 'users_view',
+  'users_create': 'users_create',
+  'users_edit': 'users_edit',
+  'users_delete': 'users_delete',
+  'admin_panel': 'admin_panel',
+  'reports_view': 'reports_view',
+  'map_view': 'map_view'
+};
+
 const INITIAL_FORM_DATA = {
   username: '',
   email: '',
@@ -124,6 +157,20 @@ const UserManagement = () => {
       setError('');
       setSuccess('');
       
+      // Convertir permisos del frontend al formato de la base de datos
+      const dbPermissions = Object.keys(userPermissions)
+        .filter(perm => userPermissions[perm])
+        .map(frontendPerm => {
+          // Buscar el permiso de BD que corresponde a este permiso de frontend
+          const dbPerm = Object.keys(PERMISSION_MAPPING).find(dbKey => 
+            PERMISSION_MAPPING[dbKey] === frontendPerm
+          );
+          return dbPerm || frontendPerm; // Fallback al nombre original si no se encuentra
+        });
+      
+      console.log('🔍 Debug - Permisos frontend:', Object.keys(userPermissions).filter(perm => userPermissions[perm]));
+      console.log('🔍 Debug - Permisos para BD:', dbPermissions);
+      
       const response = await fetch('/api/admin/users', {
         method: 'POST',
         headers: {
@@ -132,7 +179,7 @@ const UserManagement = () => {
         },
         body: JSON.stringify({
           ...formData,
-          permissions: Object.keys(userPermissions).filter(perm => userPermissions[perm])
+          permissions: dbPermissions
         })
       });
       
@@ -165,6 +212,20 @@ const UserManagement = () => {
         delete updateData.password; // No actualizar password si está vacío
       }
       
+      // Convertir permisos del frontend al formato de la base de datos
+      const dbPermissions = Object.keys(userPermissions)
+        .filter(perm => userPermissions[perm])
+        .map(frontendPerm => {
+          // Buscar el permiso de BD que corresponde a este permiso de frontend
+          const dbPerm = Object.keys(PERMISSION_MAPPING).find(dbKey => 
+            PERMISSION_MAPPING[dbKey] === frontendPerm
+          );
+          return dbPerm || frontendPerm; // Fallback al nombre original si no se encuentra
+        });
+      
+      console.log('🔍 Debug - Permisos frontend para editar:', Object.keys(userPermissions).filter(perm => userPermissions[perm]));
+      console.log('🔍 Debug - Permisos para BD (editar):', dbPermissions);
+      
       const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
         method: 'PUT',
         headers: {
@@ -173,7 +234,7 @@ const UserManagement = () => {
         },
         body: JSON.stringify({
           ...updateData,
-          permissions: Object.keys(userPermissions).filter(perm => userPermissions[perm])
+          permissions: dbPermissions
         })
       });
       
@@ -232,7 +293,7 @@ const UserManagement = () => {
     console.log('🔍 Debug - Usuario completo:', JSON.stringify(user, null, 2));
     console.log('🔍 Debug - Tipo de permisos:', typeof user.permissions);
     console.log('🔍 Debug - Permisos del usuario:', user.permissions);
-    console.log('🔍 Debug - AVAILABLE_PERMISSIONS:', AVAILABLE_PERMISSIONS);
+    console.log('🔍 Debug - PERMISSION_MAPPING:', PERMISSION_MAPPING);
     
     if (user.permissions) {
       let permissionsArray = [];
@@ -266,18 +327,20 @@ const UserManagement = () => {
       
       console.log('🔍 Debug - Permisos procesados (array):', permissionsArray);
       
-      // Marcar permisos activos
+      // Marcar permisos activos usando el mapeo
       permissionsArray.forEach(perm => {
         // Limpiar el permiso de espacios y caracteres raros
         const cleanPerm = typeof perm === 'string' ? perm.trim() : String(perm).trim();
         console.log(`🔍 Debug - Procesando permiso: "${cleanPerm}"`);
         
-        if (AVAILABLE_PERMISSIONS[cleanPerm]) {
-          currentPermissions[cleanPerm] = true;
-          console.log(`✅ Debug - Permiso "${cleanPerm}" marcado como true`);
+        // Buscar el permiso en el mapeo
+        const mappedPermission = PERMISSION_MAPPING[cleanPerm];
+        if (mappedPermission) {
+          currentPermissions[mappedPermission] = true;
+          console.log(`✅ Debug - Permiso "${cleanPerm}" mapeado a "${mappedPermission}" y marcado como true`);
         } else {
-          console.log(`❌ Debug - Permiso "${cleanPerm}" NO encontrado en AVAILABLE_PERMISSIONS`);
-          console.log('🔍 Debug - Permisos disponibles:', Object.keys(AVAILABLE_PERMISSIONS));
+          console.log(`❌ Debug - Permiso "${cleanPerm}" NO encontrado en PERMISSION_MAPPING`);
+          console.log('🔍 Debug - Mapeos disponibles:', Object.keys(PERMISSION_MAPPING));
         }
       });
     } else {
