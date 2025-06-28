@@ -2,12 +2,63 @@ import React, { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useBusinesses } from '../../hooks/useBusinesses';
 import { useFilters } from '../../hooks/useFilters';
+import { useAuth } from '../../contexts/AuthContext'; // ✅ AGREGAR IMPORT
 import ServicesStatus from '../ServicesStatus/ServicesStatus';
 import LoadingSpinner from '../LoadingSpinner/LoadingSpinner';
 import './BusinessTable.css';
 
+// ✅ HOOK HELPER PARA PERMISOS
+const usePermissions = () => {
+  const { user } = useAuth();
+
+  const hasPermission = (permission) => {
+    if (!user) return false;
+    if (user.role === 'admin') return true;
+    return user.permissions?.includes(permission) || false;
+  };
+
+  const canEditBusiness = (business) => {
+    if (!user) return false;
+    if (user.role === 'admin') return true;
+    
+    // Necesita permiso de editar Y ser propietario
+    const hasEditPermission = hasPermission('business:edit');
+    const isOwner = business.created_by === user.id;
+    
+    return hasEditPermission && isOwner;
+  };
+
+  const canDeleteBusiness = (business) => {
+    if (!user) return false;
+    if (user.role === 'admin') return true;
+    
+    // Necesita permiso de eliminar Y ser propietario
+    const hasDeletePermission = hasPermission('business:delete');
+    const isOwner = business.created_by === user.id;
+    
+    return hasDeletePermission && isOwner;
+  };
+
+  const canCreateBusiness = () => {
+    return hasPermission('business:create');
+  };
+
+  const canViewBusinesses = () => {
+    return hasPermission('business:read');
+  };
+
+  return {
+    hasPermission,
+    canEditBusiness,
+    canDeleteBusiness,
+    canCreateBusiness,
+    canViewBusinesses,
+    user
+  };
+};
+
 // ============================================================================
-// COMPONENTE PARA FILTROS
+// COMPONENTE PARA FILTROS (SIN CAMBIOS)
 // ============================================================================
 const BusinessTableFilters = ({ 
   filters, 
@@ -105,7 +156,7 @@ const BusinessTableFilters = ({
 );
 
 // ============================================================================
-// COMPONENTE PARA ESTADÍSTICAS DE FILTROS
+// COMPONENTE PARA ESTADÍSTICAS DE FILTROS (SIN CAMBIOS)
 // ============================================================================
 const FilterStats = ({ filterStats, activeFilters }) => (
   <div className="business-table-stats">
@@ -127,7 +178,7 @@ const FilterStats = ({ filterStats, activeFilters }) => (
 );
 
 // ============================================================================
-// COMPONENTE CARD PARA MÓVIL
+// COMPONENTE CARD PARA MÓVIL - ✅ CON PERMISOS
 // ============================================================================
 const BusinessCard = ({ 
   business, 
@@ -137,6 +188,22 @@ const BusinessCard = ({
   showServices = true 
 }) => {
   const navigate = useNavigate();
+  const permissions = usePermissions(); // ✅ USAR PERMISOS
+
+  // ✅ VERIFICAR PERMISOS PARA CADA ACCIÓN
+  const canEdit = permissions.canEditBusiness(business);
+  const canDelete = permissions.canDeleteBusiness(business);
+  const showAnyAction = showActions && (canEdit || canDelete);
+
+  console.log('🔍 BusinessCard permisos:', {
+    business: business.name,
+    canEdit,
+    canDelete,
+    showAnyAction,
+    userRole: permissions.user?.role,
+    userPermissions: permissions.user?.permissions,
+    isOwner: business.created_by === permissions.user?.id
+  });
 
   return (
     <div className={`business-card ${compact ? 'compact' : ''}`}>
@@ -172,23 +239,60 @@ const BusinessCard = ({
         )}
       </div>
       
-      {showActions && (
+      {/* ✅ MOSTRAR ACCIONES SOLO SI TIENE PERMISOS */}
+      {showAnyAction && (
         <div className="business-card-actions">
-          <button
-            onClick={() => navigate(`/businesses/edit/${business.id}`)}
-            className="btn btn-edit"
-            title="Editar negocio"
-          >
-            ✏️ Editar
-          </button>
+          {canEdit && (
+            <button
+              onClick={() => navigate(`/businesses/edit/${business.id}`)}
+              className="btn btn-edit"
+              title="Editar negocio"
+            >
+              ✏️ Editar
+            </button>
+          )}
           
-          <button
-            onClick={() => onDelete(business)}
-            className="btn btn-delete"
-            title="Eliminar negocio"
-          >
-            🗑️ Eliminar
-          </button>
+          {canDelete && (
+            <button
+              onClick={() => onDelete(business)}
+              className="btn btn-delete"
+              title="Eliminar negocio"
+            >
+              🗑️ Eliminar
+            </button>
+          )}
+          
+          {/* ✅ BOTÓN VER SIEMPRE DISPONIBLE SI PUEDE VER NEGOCIOS */}
+          {permissions.canViewBusinesses() && (
+            <button
+              onClick={() => navigate(`/businesses/${business.id}`)}
+              className="btn btn-sm"
+              style={{ background: '#17a2b8', color: 'white' }}
+              title="Ver detalles"
+            >
+              👁️ Ver
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ✅ DEBUG INFO EN DESARROLLO */}
+      {process.env.NODE_ENV === 'development' && (
+        <div style={{
+          fontSize: '10px',
+          color: '#666',
+          marginTop: '8px',
+          padding: '4px',
+          background: '#f8f9fa',
+          borderRadius: '4px',
+          border: '1px solid #e9ecef'
+        }}>
+          <strong>Debug Permisos:</strong><br/>
+          Usuario: {permissions.user?.username} ({permissions.user?.role})<br/>
+          Permisos: {permissions.user?.permissions?.join(', ') || 'Ninguno'}<br/>
+          Propietario: {business.created_by === permissions.user?.id ? 'Sí' : 'No'}<br/>
+          Puede editar: {canEdit ? 'Sí' : 'No'}<br/>
+          Puede eliminar: {canDelete ? 'Sí' : 'No'}
         </div>
       )}
     </div>
@@ -196,7 +300,7 @@ const BusinessCard = ({
 };
 
 // ============================================================================
-// COMPONENTES HELPER PARA INFORMACIÓN
+// COMPONENTES HELPER PARA INFORMACIÓN (SIN CAMBIOS)
 // ============================================================================
 const AddressInfo = ({ business }) => (
   <div className="business-card-detail">
@@ -263,7 +367,7 @@ const ContactInfo = ({ business }) => {
 };
 
 // ============================================================================
-// COMPONENTE BASE DE TABLA
+// COMPONENTE BASE DE TABLA - ✅ CON PERMISOS
 // ============================================================================
 const BusinessTableBase = ({ 
   businesses = [], 
@@ -276,9 +380,40 @@ const BusinessTableBase = ({
   showServices = true
 }) => {
   const navigate = useNavigate();
+  const permissions = usePermissions(); // ✅ USAR PERMISOS
+
+  // ✅ VERIFICAR SI PUEDE VER NEGOCIOS
+  if (!permissions.canViewBusinesses()) {
+    return (
+      <div className="table-empty">
+        <div className="empty-icon">🚫</div>
+        <h3>Acceso Denegado</h3>
+        <p>No tienes permisos para ver la lista de negocios.</p>
+        <div style={{
+          background: '#fff3cd',
+          border: '1px solid #ffeaa7',
+          borderRadius: '8px',
+          padding: '15px',
+          margin: '20px 0',
+          textAlign: 'left'
+        }}>
+          <p style={{ margin: 0, fontSize: '14px', color: '#856404' }}>
+            <strong>Permisos necesarios:</strong> business:read<br/>
+            <strong>Tus permisos:</strong> {permissions.user?.permissions?.join(', ') || 'Ninguno'}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const handleDelete = async (business) => {
     if (!onDelete) return;
+    
+    // ✅ VERIFICAR PERMISOS ANTES DE ELIMINAR
+    if (!permissions.canDeleteBusiness(business)) {
+      alert('No tienes permisos para eliminar este negocio');
+      return;
+    }
     
     if (!window.confirm(`¿Estás seguro de que quieres eliminar "${business.name}"?`)) {
       return;
@@ -286,7 +421,6 @@ const BusinessTableBase = ({
     
     try {
       await onDelete(business.id);
-      // El hook se encarga de actualizar la lista
     } catch (error) {
       alert('Error al eliminar el negocio: ' + error.message);
     }
@@ -318,6 +452,11 @@ const BusinessTableBase = ({
         <div className="empty-icon">🏢</div>
         <h3>No hay negocios registrados</h3>
         <p>Los negocios aparecerán aquí una vez que sean creados.</p>
+        {permissions.canCreateBusiness() && (
+          <Link to="/businesses/new" className="btn btn-primary" style={{ marginTop: '15px' }}>
+            ➕ Crear primer negocio
+          </Link>
+        )}
       </div>
     );
   }
@@ -347,6 +486,7 @@ const BusinessTableBase = ({
                 showActions={showActions}
                 showServices={showServices}
                 compact={compact}
+                permissions={permissions} // ✅ PASAR PERMISOS
               />
             ))}
           </tbody>
@@ -371,7 +511,7 @@ const BusinessTableBase = ({
 };
 
 // ============================================================================
-// COMPONENTE FILA DE TABLA
+// COMPONENTE FILA DE TABLA - ✅ CON PERMISOS
 // ============================================================================
 const BusinessTableRow = ({ 
   business, 
@@ -379,130 +519,176 @@ const BusinessTableRow = ({
   onDelete, 
   showActions, 
   showServices, 
-  compact 
-}) => (
-  <tr className="business-row">
-    {/* Negocio */}
-    <td className="business-name-cell">
-      <div className="business-info">
-        <div className="business-name">{business.name || 'Sin nombre'}</div>
-        {business.description && !compact && (
-          <div className="business-description">
-            {business.description.length > 60 
-              ? `${business.description.substring(0, 60)}...`
-              : business.description
-            }
-          </div>
-        )}
-      </div>
-    </td>
-    
-    {/* Tipo */}
-    <td className="business-type-cell">
-      <span className="business-type-badge">
-        {business.business_type || 'No especificado'}
-      </span>
-    </td>
-    
-    {/* Dirección */}
-    <td className="address-cell">
-      <div className="address-info">
-        {business.address && (
-          <div className="address-item">
-            <span className="address-label">📍 Dirección:</span>
-            <span className="address-value">{business.address}</span>
-          </div>
-        )}
-        
-        {business.distrito && (
-          <div className="address-item">
-            <span className="address-label">🏛️ Distrito:</span>
-            <span className="address-value">{business.distrito}</span>
-          </div>
-        )}
-        
-        {business.sector && (
-          <div className="address-item">
-            <span className="address-label">📍 Sector:</span>
-            <span className="address-value">{business.sector}</span>
-          </div>
-        )}
-        
-        {business.anexo && (
-          <div className="address-item">
-            <span className="address-label">🏘️ Anexo:</span>
-            <span className="address-value">{business.anexo}</span>
-          </div>
-        )}
-        
-        {!business.address && !business.distrito && !business.sector && !business.anexo && (
-          <span className="no-address">No especificada</span>
-        )}
-      </div>
-    </td>
-    
-    {/* Contacto */}
-    <td className="contact-cell">
-      <div className="contact-info">
-        {business.phone && (
-          <div className="contact-item">
-            <span className="contact-icon">📞</span>
-            <a href={`tel:${business.phone}`} className="contact-link">
-              {business.phone}
-            </a>
-          </div>
-        )}
-        {business.email && (
-          <div className="contact-item">
-            <span className="contact-icon">✉️</span>
-            <a href={`mailto:${business.email}`} className="contact-link">
-              {business.email.length > 25 
-                ? `${business.email.substring(0, 25)}...`
-                : business.email
+  compact,
+  permissions // ✅ RECIBIR PERMISOS
+}) => {
+  // ✅ VERIFICAR PERMISOS PARA ACCIONES
+  const canEdit = permissions.canEditBusiness(business);
+  const canDelete = permissions.canDeleteBusiness(business);
+  const showAnyAction = showActions && (canEdit || canDelete);
+
+  return (
+    <tr className="business-row">
+      {/* Negocio */}
+      <td className="business-name-cell">
+        <div className="business-info">
+          <div className="business-name">{business.name || 'Sin nombre'}</div>
+          {business.description && !compact && (
+            <div className="business-description">
+              {business.description.length > 60 
+                ? `${business.description.substring(0, 60)}...`
+                : business.description
               }
-            </a>
-          </div>
-        )}
-        {!business.phone && !business.email && (
-          <span className="no-contact">Sin contacto</span>
-        )}
-      </div>
-    </td>
-    
-    {/* Servicios */}
-    {showServices && (
-      <td className="services-cell">
-        <ServicesStatus business={business} compact={compact} />
-      </td>
-    )}
-    
-    {/* Acciones */}
-    {showActions && (
-      <td className="actions-cell">
-        <div className="action-buttons">
-          <button
-            onClick={onEdit}
-            className="btn btn-sm btn-edit"
-            title="Editar negocio"
-          >
-            ✏️
-          </button>
-          
-          <button
-            onClick={onDelete}
-            className="btn btn-sm btn-delete"
-            title="Eliminar negocio"
-          >
-            🗑️
-          </button>
+            </div>
+          )}
         </div>
       </td>
-    )}
-  </tr>
-);
+      
+      {/* Tipo */}
+      <td className="business-type-cell">
+        <span className="business-type-badge">
+          {business.business_type || 'No especificado'}
+        </span>
+      </td>
+      
+      {/* Dirección */}
+      <td className="address-cell">
+        <div className="address-info">
+          {business.address && (
+            <div className="address-item">
+              <span className="address-label">📍 Dirección:</span>
+              <span className="address-value">{business.address}</span>
+            </div>
+          )}
+          
+          {business.distrito && (
+            <div className="address-item">
+              <span className="address-label">🏛️ Distrito:</span>
+              <span className="address-value">{business.distrito}</span>
+            </div>
+          )}
+          
+          {business.sector && (
+            <div className="address-item">
+              <span className="address-label">📍 Sector:</span>
+              <span className="address-value">{business.sector}</span>
+            </div>
+          )}
+          
+          {business.anexo && (
+            <div className="address-item">
+              <span className="address-label">🏘️ Anexo:</span>
+              <span className="address-value">{business.anexo}</span>
+            </div>
+          )}
+          
+          {!business.address && !business.distrito && !business.sector && !business.anexo && (
+            <span className="no-address">No especificada</span>
+          )}
+        </div>
+      </td>
+      
+      {/* Contacto */}
+      <td className="contact-cell">
+        <div className="contact-info">
+          {business.phone && (
+            <div className="contact-item">
+              <span className="contact-icon">📞</span>
+              <a href={`tel:${business.phone}`} className="contact-link">
+                {business.phone}
+              </a>
+            </div>
+          )}
+          {business.email && (
+            <div className="contact-item">
+              <span className="contact-icon">✉️</span>
+              <a href={`mailto:${business.email}`} className="contact-link">
+                {business.email.length > 25 
+                  ? `${business.email.substring(0, 25)}...`
+                  : business.email
+                }
+              </a>
+            </div>
+          )}
+          {!business.phone && !business.email && (
+            <span className="no-contact">Sin contacto</span>
+          )}
+        </div>
+      </td>
+      
+      {/* Servicios */}
+      {showServices && (
+        <td className="services-cell">
+          <ServicesStatus business={business} compact={compact} />
+        </td>
+      )}
+      
+      {/* ✅ ACCIONES CON PERMISOS */}
+      {showActions && (
+        <td className="actions-cell">
+          <div className="action-buttons">
+            {canEdit && (
+              <button
+                onClick={onEdit}
+                className="btn btn-sm btn-edit"
+                title="Editar negocio"
+              >
+                ✏️
+              </button>
+            )}
+            
+            {canDelete && (
+              <button
+                onClick={onDelete}
+                className="btn btn-sm btn-delete"
+                title="Eliminar negocio"
+              >
+                🗑️
+              </button>
+            )}
+            
+            {/* ✅ BOTÓN VER SIEMPRE DISPONIBLE */}
+            <button
+              onClick={() => window.open(`/businesses/${business.id}`, '_blank')}
+              className="btn btn-sm"
+              style={{ background: '#17a2b8', color: 'white' }}
+              title="Ver detalles"
+            >
+              👁️
+            </button>
+            
+            {/* ✅ MOSTRAR MENSAJE SI NO TIENE PERMISOS */}
+            {!canEdit && !canDelete && (
+              <span style={{ 
+                fontSize: '11px', 
+                color: '#6c757d', 
+                fontStyle: 'italic' 
+              }}>
+                Sin permisos
+              </span>
+            )}
+          </div>
+          
+          {/* ✅ DEBUG EN DESARROLLO */}
+          {process.env.NODE_ENV === 'development' && (
+            <div style={{
+              fontSize: '9px',
+              color: '#666',
+              marginTop: '2px',
+              textAlign: 'center'
+            }}>
+              E:{canEdit ? '✅' : '❌'} D:{canDelete ? '✅' : '❌'} 
+              O:{business.created_by === permissions.user?.id ? '✅' : '❌'}
+            </div>
+          )}
+        </td>
+      )}
+    </tr>
+  );
+};
 
 // ============================================================================
-// COMPONENTE PARA EL DASHBOARD (SIN FILTROS)
+// COMPONENTE PARA EL DASHBOARD (SIN FILTROS) - ✅ CON PERMISOS
 // ============================================================================
 export const RecentBusinessesSection = () => {
   const { 
@@ -516,10 +702,28 @@ export const RecentBusinessesSection = () => {
   });
 
   const navigate = useNavigate();
+  const permissions = usePermissions(); // ✅ USAR PERMISOS
 
   const handleViewAll = () => {
     navigate('/businesses');
   };
+
+  // ✅ VERIFICAR PERMISOS PARA VER NEGOCIOS
+  if (!permissions.canViewBusinesses()) {
+    return (
+      <div className="recent-businesses-section">
+        <div className="section-header">
+          <h2>Negocios Recientes</h2>
+        </div>
+        
+        <div className="table-empty">
+          <div className="empty-icon">🚫</div>
+          <h3>Sin permisos para ver negocios</h3>
+          <p>Necesitas el permiso "business:read" para ver la lista de negocios.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="recent-businesses-section">
@@ -559,9 +763,11 @@ export const RecentBusinessesSection = () => {
 };
 
 // ============================================================================
-// COMPONENTE PRINCIPAL CON FILTROS (PÁGINA DEDICADA)
+// COMPONENTE PRINCIPAL CON FILTROS (PÁGINA DEDICADA) - ✅ CON PERMISOS
 // ============================================================================
 const BusinessTable = () => {
+  const permissions = usePermissions(); // ✅ USAR PERMISOS
+  
   const { 
     businesses, 
     loading, 
@@ -582,7 +788,7 @@ const BusinessTable = () => {
 
   // Paginación local para datos filtrados
   const [currentPage, setCurrentPage] = React.useState(1);
-  const [itemsPerPage] = React.useState(10);
+  const [itemsPerPage, setItemsPerPage] = React.useState(10);
 
   const paginatedBusinesses = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -601,6 +807,37 @@ const BusinessTable = () => {
     setCurrentPage(1);
   }, [filters]);
 
+  // ✅ VERIFICAR PERMISOS PARA VER NEGOCIOS
+  if (!permissions.canViewBusinesses()) {
+    return (
+      <div className="business-table-container">
+        <div className="business-table-header">
+          <h1>📋 Lista de Negocios</h1>
+        </div>
+        
+        <div className="table-empty">
+          <div className="empty-icon">🚫</div>
+          <h3>Acceso Denegado</h3>
+          <p>No tienes permisos para ver la lista de negocios.</p>
+          <div style={{
+            background: '#fff3cd',
+            border: '1px solid #ffeaa7',
+            borderRadius: '8px',
+            padding: '15px',
+            margin: '20px 0',
+            textAlign: 'left'
+          }}>
+            <p style={{ margin: 0, fontSize: '14px', color: '#856404' }}>
+              <strong>Permisos necesarios:</strong> business:read<br/>
+              <strong>Tus permisos:</strong> {permissions.user?.permissions?.join(', ') || 'Ninguno'}<br/>
+              <strong>Contacta al administrador</strong> para obtener permisos de lectura de negocios.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div style={{ padding: '20px' }}>
@@ -616,9 +853,12 @@ const BusinessTable = () => {
         <h1>📋 Lista de Negocios</h1>
         
         <div className="business-table-actions">
-          <Link to="/businesses/new" className="btn btn-primary">
-            ➕ Nuevo Negocio
-          </Link>
+          {/* ✅ BOTÓN CREAR SOLO SI TIENE PERMISOS */}
+          {permissions.canCreateBusiness() && (
+            <Link to="/businesses/new" className="btn btn-primary">
+              ➕ Nuevo Negocio
+            </Link>
+          )}
           
           <button 
             onClick={loadBusinesses}
@@ -629,6 +869,22 @@ const BusinessTable = () => {
           </button>
         </div>
       </div>
+
+      {/* ✅ MOSTRAR INFO DE PERMISOS EN DESARROLLO */}
+      {process.env.NODE_ENV === 'development' && (
+        <div style={{
+          background: '#e3f2fd',
+          border: '1px solid #90caf9',
+          borderRadius: '8px',
+          padding: '10px',
+          margin: '0 0 20px 0',
+          fontSize: '13px'
+        }}>
+          <strong>Debug Permisos:</strong> Usuario: {permissions.user?.username} | 
+          Permisos: {permissions.user?.permissions?.join(', ') || 'Ninguno'} | 
+          Crear: {permissions.canCreateBusiness() ? '✅' : '❌'}
+        </div>
+      )}
 
       {/* Filtros */}
       <BusinessTableFilters
@@ -641,14 +897,14 @@ const BusinessTable = () => {
 
       {/* Estadísticas */}
       <FilterStats 
-        filterStats={filterStats}
-        activeFilters={activeFilters}
+        filterStats={filterStats} 
+        activeFilters={activeFilters} 
       />
 
-      {/* Tabla */}
+      {/* Tabla principal */}
       <BusinessTableBase
         businesses={paginatedBusinesses}
-        loading={false}
+        loading={loading}
         error={error}
         onDelete={deleteBusiness}
         showActions={true}
@@ -656,27 +912,130 @@ const BusinessTable = () => {
         showServices={true}
       />
 
-      {/* Paginación */}
+      {/* ✅ PAGINACIÓN */}
       {totalPages > 1 && (
-        <div className="pagination">
-          <button
-            onClick={() => goToPage(currentPage - 1)}
-            disabled={currentPage === 1}
-            className="btn btn-pagination"
-          >
-            ← Anterior
-          </button>
+        <div className="business-table-pagination">
+          <div className="pagination-info">
+            <span>
+              Página {currentPage} de {totalPages} 
+              ({filteredBusinesses.length} resultados)
+            </span>
+          </div>
           
-          <span className="pagination-info">
-            Página {currentPage} de {totalPages}
-          </span>
+          <div className="pagination-controls">
+            <button
+              onClick={() => goToPage(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="btn btn-sm btn-secondary"
+            >
+              ← Anterior
+            </button>
+            
+            {/* Números de página */}
+            <div className="pagination-numbers">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+                
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => goToPage(pageNum)}
+                    className={`btn btn-sm ${currentPage === pageNum ? 'btn-primary' : 'btn-outline'}`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+            </div>
+            
+            <button
+              onClick={() => goToPage(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="btn btn-sm btn-secondary"
+            >
+              Siguiente →
+            </button>
+          </div>
           
+          {/* Selector de elementos por página */}
+          <div className="pagination-size">
+            <label htmlFor="items-per-page">Mostrar:</label>
+            <select
+              id="items-per-page"
+              value={itemsPerPage}
+              onChange={(e) => {
+                setItemsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="pagination-select"
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ ACCIONES ADICIONALES */}
+      <div className="business-table-footer">
+        {filteredBusinesses.length > 0 && (
+          <div className="table-summary">
+            <p>
+              📊 Total: {filteredBusinesses.length} negocios
+              {filterStats.hidden > 0 && ` (${filterStats.hidden} filtrados)`}
+            </p>
+          </div>
+        )}
+        
+        {/* ✅ BOTONES DE ACCIÓN MASIVA (solo para admins) */}
+        {permissions.user?.role === 'admin' && filteredBusinesses.length > 0 && (
+          <div className="bulk-actions">
+            <button
+              onClick={() => {
+                const csvContent = generateCSV(filteredBusinesses);
+                downloadCSV(csvContent, 'negocios.csv');
+              }}
+              className="btn btn-outline"
+              title="Exportar datos filtrados a CSV"
+            >
+              📊 Exportar CSV
+            </button>
+            
+            <button
+              onClick={() => window.print()}
+              className="btn btn-outline"
+              title="Imprimir lista"
+            >
+              🖨️ Imprimir
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ✅ MOSTRAR MENSAJE DE AYUDA SI NO HAY RESULTADOS DESPUÉS DE FILTRAR */}
+      {filteredBusinesses.length === 0 && businesses.length > 0 && (
+        <div className="table-empty">
+          <div className="empty-icon">🔍</div>
+          <h3>No se encontraron resultados</h3>
+          <p>No hay negocios que coincidan con los filtros aplicados.</p>
           <button
-            onClick={() => goToPage(currentPage + 1)}
-            disabled={currentPage === totalPages}
-            className="btn btn-pagination"
+            onClick={clearAllFilters}
+            className="btn btn-primary"
+            style={{ marginTop: '15px' }}
           >
-            Siguiente →
+            🧹 Limpiar filtros
           </button>
         </div>
       )}
@@ -684,4 +1043,59 @@ const BusinessTable = () => {
   );
 };
 
+// ============================================================================
+// FUNCIONES HELPER PARA EXPORTACIÓN (solo para admins)
+// ============================================================================
+const generateCSV = (businesses) => {
+  const headers = [
+    'Nombre',
+    'Tipo',
+    'Descripción',
+    'Dirección',
+    'Distrito',
+    'Sector',
+    'Anexo',
+    'Teléfono',
+    'Email',
+    'Fecha Creación'
+  ];
+  
+  const rows = businesses.map(business => [
+    business.name || '',
+    business.business_type || '',
+    business.description || '',
+    business.address || '',
+    business.distrito || '',
+    business.sector || '',
+    business.anexo || '',
+    business.phone || '',
+    business.email || '',
+    business.created_at ? new Date(business.created_at).toLocaleDateString() : ''
+  ]);
+  
+  const csvContent = [headers, ...rows]
+    .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    .join('\n');
+    
+  return csvContent;
+};
+
+const downloadCSV = (content, filename) => {
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  
+  if (link.download !== undefined) {
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+};
+
+// ============================================================================
+// EXPORT DEFAULT
+// ============================================================================
 export default BusinessTable;
