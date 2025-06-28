@@ -158,18 +158,19 @@ const UserManagement = () => {
       setSuccess('');
       
       // Convertir permisos del frontend al formato de la base de datos
-      const dbPermissions = Object.keys(userPermissions)
-        .filter(perm => userPermissions[perm])
-        .map(frontendPerm => {
-          // Buscar el permiso de BD que corresponde a este permiso de frontend
-          const dbPerm = Object.keys(PERMISSION_MAPPING).find(dbKey => 
-            PERMISSION_MAPPING[dbKey] === frontendPerm
-          );
-          return dbPerm || frontendPerm; // Fallback al nombre original si no se encuentra
-        });
+      // Solo incluir los permisos que están marcados como true
+      const selectedFrontendPermissions = Object.keys(userPermissions).filter(perm => userPermissions[perm]);
       
-      console.log('🔍 Debug - Permisos frontend:', Object.keys(userPermissions).filter(perm => userPermissions[perm]));
-      console.log('🔍 Debug - Permisos para BD:', dbPermissions);
+      const dbPermissions = selectedFrontendPermissions.map(frontendPerm => {
+        // Buscar el permiso de BD que corresponde a este permiso de frontend
+        const dbPerm = Object.keys(PERMISSION_MAPPING).find(dbKey => 
+          PERMISSION_MAPPING[dbKey] === frontendPerm
+        );
+        return dbPerm || frontendPerm; // Fallback al nombre original si no se encuentra
+      });
+      
+      console.log('🔍 Debug - Permisos frontend seleccionados:', selectedFrontendPermissions);
+      console.log('🔍 Debug - Permisos para BD (crear):', dbPermissions);
       
       const response = await fetch('/api/admin/users', {
         method: 'POST',
@@ -213,17 +214,19 @@ const UserManagement = () => {
       }
       
       // Convertir permisos del frontend al formato de la base de datos
-      const dbPermissions = Object.keys(userPermissions)
-        .filter(perm => userPermissions[perm])
-        .map(frontendPerm => {
-          // Buscar el permiso de BD que corresponde a este permiso de frontend
-          const dbPerm = Object.keys(PERMISSION_MAPPING).find(dbKey => 
-            PERMISSION_MAPPING[dbKey] === frontendPerm
-          );
-          return dbPerm || frontendPerm; // Fallback al nombre original si no se encuentra
-        });
+      // Solo incluir los permisos que están marcados como true
+      const selectedFrontendPermissions = Object.keys(userPermissions).filter(perm => userPermissions[perm]);
       
-      console.log('🔍 Debug - Permisos frontend para editar:', Object.keys(userPermissions).filter(perm => userPermissions[perm]));
+      const dbPermissions = selectedFrontendPermissions.map(frontendPerm => {
+        // Buscar el permiso de BD que corresponde a este permiso de frontend
+        const dbPerm = Object.keys(PERMISSION_MAPPING).find(dbKey => 
+          PERMISSION_MAPPING[dbKey] === frontendPerm
+        );
+        return dbPerm || frontendPerm; // Fallback al nombre original si no se encuentra
+      });
+      
+      console.log('🔍 Debug - Estado completo userPermissions:', userPermissions);
+      console.log('🔍 Debug - Permisos frontend seleccionados:', selectedFrontendPermissions);
       console.log('🔍 Debug - Permisos para BD (editar):', dbPermissions);
       
       const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
@@ -408,11 +411,19 @@ const UserManagement = () => {
   }, [resetForm]);
 
   const handlePermissionChange = useCallback((permission) => {
-    setUserPermissions(prev => ({
-      ...prev,
-      [permission]: !prev[permission]
-    }));
-  }, []);
+    console.log(`🔍 Debug - Cambiando permiso: ${permission}`);
+    console.log(`🔍 Debug - Estado actual del permiso: ${userPermissions[permission]}`);
+    
+    setUserPermissions(prev => {
+      const newState = {
+        ...prev,
+        [permission]: !prev[permission]
+      };
+      console.log(`🔍 Debug - Nuevo estado del permiso ${permission}: ${newState[permission]}`);
+      console.log(`🔍 Debug - Nuevo estado completo:`, newState);
+      return newState;
+    });
+  }, [userPermissions]);
 
   // ✅ FUNCIÓN HELPER PARA FORMATEAR FECHA
   const formatLastLogin = useCallback((lastLogin) => {
@@ -847,7 +858,6 @@ const UserFormFields = ({ formData, onInputChange, isEditing, selectedUser, curr
 const PermissionsSection = ({ userPermissions, availablePermissions, onPermissionChange }) => {
   console.log('🔍 Debug - PermissionsSection renderizando...');
   console.log('🔍 Debug - userPermissions recibidos:', userPermissions);
-  console.log('🔍 Debug - availablePermissions:', Object.keys(availablePermissions));
   
   // Verificar si userPermissions es un objeto válido
   const isValidPermissions = userPermissions && typeof userPermissions === 'object';
@@ -867,7 +877,7 @@ const PermissionsSection = ({ userPermissions, availablePermissions, onPermissio
       <div className="permissions-grid">
         {Object.entries(availablePermissions).map(([perm, label]) => {
           const isChecked = isValidPermissions ? Boolean(userPermissions[perm]) : false;
-          console.log(`🔍 Debug - Permiso ${perm}: ${isChecked} (valor: ${userPermissions[perm]})`);
+          console.log(`🔍 Debug - Permiso ${perm}: ${isChecked} (valor raw: ${userPermissions[perm]})`);
           
           return (
             <label key={perm} className="permission-item">
@@ -875,7 +885,7 @@ const PermissionsSection = ({ userPermissions, availablePermissions, onPermissio
                 type="checkbox"
                 checked={isChecked}
                 onChange={() => {
-                  console.log(`🔍 Debug - Cambiando permiso ${perm}`);
+                  console.log(`🔍 Debug - Click en permiso ${perm}, estado actual: ${isChecked}`);
                   onPermissionChange(perm);
                 }}
               />
@@ -889,7 +899,8 @@ const PermissionsSection = ({ userPermissions, availablePermissions, onPermissio
       <div style={{background: '#f0f0f0', padding: '10px', marginTop: '10px', fontSize: '12px', fontFamily: 'monospace'}}>
         <strong>🐛 Debug Info:</strong><br/>
         userPermissions: {JSON.stringify(userPermissions)}<br/>
-        Permisos marcados: {Object.entries(userPermissions || {}).filter(([k,v]) => v).map(([k]) => k).join(', ') || 'ninguno'}
+        Permisos marcados: {Object.entries(userPermissions || {}).filter(([k,v]) => v).map(([k]) => k).join(', ') || 'ninguno'}<br/>
+        Total checkboxes marcados: {Object.values(userPermissions || {}).filter(v => v).length}
       </div>
     </div>
   );
