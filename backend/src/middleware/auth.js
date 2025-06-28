@@ -17,8 +17,10 @@ const auth = async (req, res, next) => {
     // Verificar el token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Buscar el usuario
-    const user = await User.findByPk(decoded.id);
+    // ✅ BUSCAR USUARIO CON PERMISOS
+    const user = await User.findByPk(decoded.id, {
+      attributes: ['id', 'username', 'email', 'full_name', 'role', 'is_active', 'permissions', 'last_login']
+    });
     
     if (!user) {
       return res.status(401).json({ 
@@ -28,8 +30,26 @@ const auth = async (req, res, next) => {
       });
     }
 
-    // Agregar usuario a la request
-    req.user = user;
+    if (!user.is_active) {
+      return res.status(401).json({ 
+        success: false,
+        message: 'Usuario inactivo',
+        error: 'USER_INACTIVE'
+      });
+    }
+
+    // ✅ AGREGAR PERMISOS AL OBJETO USER
+    const userObj = user.toJSON();
+    if (user.role === 'admin') {
+      userObj.permissions = ['ALL'];
+    } else {
+      userObj.permissions = user.permissions || [];
+    }
+
+    console.log(`🔐 Usuario autenticado: ${user.username} con permisos:`, userObj.permissions);
+
+    // Agregar usuario completo a la request
+    req.user = userObj;
     next();
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {
@@ -76,8 +96,21 @@ const optionalAuth = async (req, res, next) => {
     
     if (token) {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await User.findByPk(decoded.id);
-      req.user = user;
+      
+      // ✅ INCLUIR PERMISOS EN AUTH OPCIONAL
+      const user = await User.findByPk(decoded.id, {
+        attributes: ['id', 'username', 'email', 'full_name', 'role', 'is_active', 'permissions', 'last_login']
+      });
+      
+      if (user && user.is_active) {
+        const userObj = user.toJSON();
+        if (user.role === 'admin') {
+          userObj.permissions = ['ALL'];
+        } else {
+          userObj.permissions = user.permissions || [];
+        }
+        req.user = userObj;
+      }
     }
     
     next();

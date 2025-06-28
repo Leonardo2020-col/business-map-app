@@ -5,6 +5,127 @@ const User = require('../models/User');
 // ===============================================
 
 /**
+ * Función helper para verificar permisos en controladores
+ * @param {number} userId - ID del usuario
+ * @param {string} permission - Permiso a verificar
+ * @returns {Promise<boolean>} - True si tiene el permiso
+ */
+const checkUserPermission = async (userId, permission) => {
+  try {
+    // ✅ OBTENER USUARIO CON PERMISOS
+    const user = await User.findByPk(userId, {
+      attributes: ['id', 'role', 'is_active', 'permissions']
+    });
+
+    if (!user || !user.is_active) {
+      return false;
+    }
+
+    // Los administradores tienen todos los permisos
+    if (user.role === 'admin') {
+      return true;
+    }
+
+    // ✅ VERIFICAR PRIMERO EN LA COLUMNA permissions (JSON)
+    if (user.permissions && Array.isArray(user.permissions)) {
+      return user.permissions.includes(permission);
+    }
+
+    // ✅ VERIFICAR EN LA TABLA user_permissions (usando las funciones SQL existentes)
+    try {
+      const result = await user.sequelize.query(
+        `SELECT user_has_permission(:userId, :permission::permission_type) as has_permission`,
+        {
+          replacements: { userId, permission },
+          type: user.sequelize.QueryTypes.SELECT
+        }
+      );
+
+      return result[0]?.has_permission || false;
+    } catch (sqlError) {
+      // Si falla la función SQL, verificar directamente en la tabla
+      const permissionRecord = await user.sequelize.query(
+        `SELECT 1 FROM user_permissions 
+         WHERE user_id = :userId 
+         AND permission = :permission::permission_type 
+         AND is_active = true 
+         AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)`,
+        {
+          replacements: { userId, permission },
+          type: user.sequelize.QueryTypes.SELECT
+        }
+      );
+
+      return permissionRecord.length > 0;
+    }
+
+  } catch (error) {
+    console.error('Error verificando permiso:', error);
+    return false;
+  }
+};
+
+/**
+ * Función helper para obtener todos los permisos de un usuario
+ * @param {number} userId - ID del usuario
+ * @returns {Promise<string[]>} - Array de permisos
+ */
+const getUserPermissions = async (userId) => {
+  try {
+    // ✅ OBTENER USUARIO CON PERMISOS
+    const user = await User.findByPk(userId, {
+      attributes: ['id', 'role', 'is_active', 'permissions']
+    });
+
+    if (!user || !user.is_active) {
+      return [];
+    }
+
+    // Los administradores tienen todos los permisos
+    if (user.role === 'admin') {
+      return ['ALL'];
+    }
+
+    // ✅ VERIFICAR PRIMERO EN LA COLUMNA permissions (JSON)
+    if (user.permissions && Array.isArray(user.permissions)) {
+      return user.permissions;
+    }
+
+    // ✅ VERIFICAR EN LA TABLA user_permissions
+    try {
+      const permissions = await user.sequelize.query(
+        `SELECT permission::text FROM get_user_permissions(:userId)`,
+        {
+          replacements: { userId },
+          type: user.sequelize.QueryTypes.SELECT
+        }
+      );
+
+      return permissions.map(p => p.permission);
+    } catch (sqlError) {
+      // Si falla la función SQL, consultar directamente la tabla
+      const permissions = await user.sequelize.query(
+        `SELECT permission::text as permission 
+         FROM user_permissions 
+         WHERE user_id = :userId 
+         AND is_active = true 
+         AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)`,
+        {
+          replacements: { userId },
+          type: user.sequelize.QueryTypes.SELECT
+        }
+      );
+
+      return permissions.map(p => p.permission);
+    }
+
+  } catch (error) {
+    console.error('Error obteniendo permisos del usuario:', error);
+    return [];
+  }
+};
+
+/**
  * Middleware que verifica si el usuario tiene un permiso específico
  * @param {string} permission - Permiso requerido
  * @returns {Function} - Middleware express
@@ -22,43 +143,10 @@ const requirePermission = (permission) => {
         });
       }
 
-      // Obtener usuario con rol
-      const user = await User.findByPk(userId, {
-        attributes: ['id', 'username', 'role', 'is_active']
-      });
+      // ✅ USAR LA FUNCIÓN HELPER CORREGIDA
+      const hasPermission = await checkUserPermission(userId, permission);
 
-      if (!user) {
-        return res.status(401).json({
-          success: false,
-          message: 'Usuario no encontrado',
-          error: 'USER_NOT_FOUND'
-        });
-      }
-
-      if (!user.is_active) {
-        return res.status(403).json({
-          success: false,
-          message: 'Usuario inactivo',
-          error: 'USER_INACTIVE'
-        });
-      }
-
-      // Los administradores tienen todos los permisos
-      if (user.role === 'admin') {
-        req.user.hasPermission = true;
-        return next();
-      }
-
-      // Verificar permiso específico para usuarios normales
-      const hasPermission = await user.sequelize.query(
-        `SELECT user_has_permission(:userId, :permission) as has_permission`,
-        {
-          replacements: { userId, permission },
-          type: user.sequelize.QueryTypes.SELECT
-        }
-      );
-
-      if (!hasPermission[0]?.has_permission) {
+      if (!hasPermission) {
         return res.status(403).json({
           success: false,
           message: `No tienes permisos para: ${permission}`,
@@ -99,37 +187,13 @@ const requireAllPermissions = (permissions) => {
         });
       }
 
-      const user = await User.findByPk(userId, {
-        attributes: ['id', 'username', 'role', 'is_active']
-      });
-
-      if (!user || !user.is_active) {
-        return res.status(403).json({
-          success: false,
-          message: 'Usuario no encontrado o inactivo',
-          error: 'USER_INACTIVE'
-        });
-      }
-
-      // Los administradores tienen todos los permisos
-      if (user.role === 'admin') {
-        req.user.hasAllPermissions = true;
-        return next();
-      }
-
-      // Verificar todos los permisos
+      // ✅ VERIFICAR TODOS LOS PERMISOS USANDO LA FUNCIÓN HELPER
       const permissionChecks = await Promise.all(
         permissions.map(async (permission) => {
-          const result = await user.sequelize.query(
-            `SELECT user_has_permission(:userId, :permission) as has_permission`,
-            {
-              replacements: { userId, permission },
-              type: user.sequelize.QueryTypes.SELECT
-            }
-          );
+          const hasPermission = await checkUserPermission(userId, permission);
           return {
             permission,
-            hasPermission: result[0]?.has_permission || false
+            hasPermission
           };
         })
       );
@@ -179,35 +243,10 @@ const requireAnyPermission = (permissions) => {
         });
       }
 
-      const user = await User.findByPk(userId, {
-        attributes: ['id', 'username', 'role', 'is_active']
-      });
-
-      if (!user || !user.is_active) {
-        return res.status(403).json({
-          success: false,
-          message: 'Usuario no encontrado o inactivo',
-          error: 'USER_INACTIVE'
-        });
-      }
-
-      // Los administradores tienen todos los permisos
-      if (user.role === 'admin') {
-        req.user.hasAnyPermission = true;
-        return next();
-      }
-
-      // Verificar si tiene al menos uno de los permisos
+      // ✅ VERIFICAR SI TIENE AL MENOS UNO DE LOS PERMISOS
       for (const permission of permissions) {
-        const result = await user.sequelize.query(
-          `SELECT user_has_permission(:userId, :permission) as has_permission`,
-          {
-            replacements: { userId, permission },
-            type: user.sequelize.QueryTypes.SELECT
-          }
-        );
-
-        if (result[0]?.has_permission) {
+        const hasPermission = await checkUserPermission(userId, permission);
+        if (hasPermission) {
           req.user.hasAnyPermission = true;
           return next();
         }
@@ -232,82 +271,6 @@ const requireAnyPermission = (permissions) => {
 };
 
 /**
- * Función helper para verificar permisos en controladores
- * @param {number} userId - ID del usuario
- * @param {string} permission - Permiso a verificar
- * @returns {Promise<boolean>} - True si tiene el permiso
- */
-const checkUserPermission = async (userId, permission) => {
-  try {
-    // Obtener usuario
-    const user = await User.findByPk(userId, {
-      attributes: ['id', 'role', 'is_active']
-    });
-
-    if (!user || !user.is_active) {
-      return false;
-    }
-
-    // Los administradores tienen todos los permisos
-    if (user.role === 'admin') {
-      return true;
-    }
-
-    // Verificar permiso específico
-    const result = await user.sequelize.query(
-      `SELECT user_has_permission(:userId, :permission) as has_permission`,
-      {
-        replacements: { userId, permission },
-        type: user.sequelize.QueryTypes.SELECT
-      }
-    );
-
-    return result[0]?.has_permission || false;
-
-  } catch (error) {
-    console.error('Error verificando permiso:', error);
-    return false;
-  }
-};
-
-/**
- * Función helper para obtener todos los permisos de un usuario
- * @param {number} userId - ID del usuario
- * @returns {Promise<string[]>} - Array de permisos
- */
-const getUserPermissions = async (userId) => {
-  try {
-    const user = await User.findByPk(userId, {
-      attributes: ['id', 'role', 'is_active']
-    });
-
-    if (!user || !user.is_active) {
-      return [];
-    }
-
-    // Los administradores tienen todos los permisos
-    if (user.role === 'admin') {
-      return ['ALL'];
-    }
-
-    // Obtener permisos específicos
-    const permissions = await user.sequelize.query(
-      `SELECT permission FROM get_user_permissions(:userId)`,
-      {
-        replacements: { userId },
-        type: user.sequelize.QueryTypes.SELECT
-      }
-    );
-
-    return permissions.map(p => p.permission);
-
-  } catch (error) {
-    console.error('Error obteniendo permisos del usuario:', error);
-    return [];
-  }
-};
-
-/**
  * Middleware para agregar permisos del usuario al request
  * Útil para el frontend para mostrar/ocultar elementos
  */
@@ -318,6 +281,7 @@ const attachUserPermissions = async (req, res, next) => {
     if (userId) {
       const permissions = await getUserPermissions(userId);
       req.user.permissions = permissions;
+      console.log(`🔐 Permisos adjuntados para usuario ${userId}:`, permissions);
     }
     
     next();
@@ -333,10 +297,10 @@ const attachUserPermissions = async (req, res, next) => {
  */
 const validateBusinessPermissions = (action) => {
   const permissionMap = {
-    'view': 'businesses_view',
-    'create': 'businesses_create',
-    'edit': 'businesses_edit',
-    'delete': 'businesses_delete'
+    'view': 'business:read',      // ✅ USAR FORMATO DE BD
+    'create': 'business:create',
+    'edit': 'business:edit',
+    'delete': 'business:delete'
   };
 
   const permission = permissionMap[action];
@@ -354,10 +318,10 @@ const validateBusinessPermissions = (action) => {
  */
 const validateUserPermissions = (action) => {
   const permissionMap = {
-    'view': 'users_view',
-    'create': 'users_create',
-    'edit': 'users_edit',
-    'delete': 'users_delete'
+    'view': 'user:read',      // ✅ USAR FORMATO DE BD
+    'create': 'user:create',
+    'edit': 'user:edit',
+    'delete': 'user:delete'
   };
 
   const permission = permissionMap[action];
@@ -370,25 +334,25 @@ const validateUserPermissions = (action) => {
 };
 
 // ===============================================
-// CONSTANTES DE PERMISOS
+// CONSTANTES DE PERMISOS - ✅ FORMATO DE BD
 // ===============================================
 const PERMISSIONS = {
-  // Permisos de negocios
-  BUSINESSES_VIEW: 'businesses_view',
-  BUSINESSES_CREATE: 'businesses_create',
-  BUSINESSES_EDIT: 'businesses_edit',
-  BUSINESSES_DELETE: 'businesses_delete',
+  // Permisos de negocios (formato BD)
+  BUSINESS_READ: 'business:read',
+  BUSINESS_CREATE: 'business:create',
+  BUSINESS_EDIT: 'business:edit',
+  BUSINESS_DELETE: 'business:delete',
   
-  // Permisos de usuarios
-  USERS_VIEW: 'users_view',
-  USERS_CREATE: 'users_create',
-  USERS_EDIT: 'users_edit',
-  USERS_DELETE: 'users_delete',
+  // Permisos de usuarios (formato BD)
+  USER_READ: 'user:read',
+  USER_CREATE: 'user:create',
+  USER_EDIT: 'user:edit',
+  USER_DELETE: 'user:delete',
   
-  // Permisos generales
-  ADMIN_PANEL: 'admin_panel',
-  REPORTS_VIEW: 'reports_view',
-  MAP_VIEW: 'map_view'
+  // Permisos generales (formato BD)
+  ADMIN_PANEL: 'admin:panel',
+  REPORTS_VIEW: 'reports:view',
+  MAP_VIEW: 'map:view'
 };
 
 module.exports = {
