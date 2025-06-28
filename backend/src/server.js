@@ -3,11 +3,6 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
-// Debug información
-console.log('📂 Directorio actual:', process.cwd());
-console.log('📂 __dirname:', __dirname);
-console.log('📂 Archivos en directorio actual:', require('fs').readdirSync('.'));
-
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -26,7 +21,11 @@ console.log(`🚂 Plataforma: ${isRailway ? 'Railway' : 'Local'}`);
 // ===============================================
 app.use(cors({
   origin: isProduction 
-    ? (process.env.FRONTEND_URL || process.env.RAILWAY_STATIC_URL || '*') 
+    ? [
+        process.env.FRONTEND_URL,
+        process.env.RAILWAY_STATIC_URL,
+        /\.railway\.app$/
+      ].filter(Boolean) // Eliminar valores undefined
     : ['http://localhost:5173', 'http://localhost:3000'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -79,7 +78,7 @@ const setupModels = async () => {
   try {
     console.log('📊 Configurando modelos...');
     
-    // ✅ RUTAS CORREGIDAS CON ./src/
+    // ✅ RUTAS CORREGIDAS
     const sequelize = require('./config/database');
     const User = require('./models/User');
     const Business = require('./models/Business');
@@ -146,13 +145,13 @@ const startServer = async () => {
     // ✅ CONFIGURAR MODELOS PRIMERO
     const modelsConfigured = await setupModels();
     
-    // ✅ CARGAR RUTAS DESPUÉS CON RUTAS CORREGIDAS
+    // ✅ CARGAR RUTAS CON RUTAS CORREGIDAS
     console.log('🛣️ Registrando rutas...');
     
-loadRoutes('./routes/auth', '/api/auth', 'rutas de autenticación');
-loadRoutes('./routes/users', '/api/users', 'rutas de usuarios');
-loadRoutes('./routes/businesses', '/api/businesses', 'rutas de negocios');
-loadRoutes('./routes/admin/users', '/api/admin/users', 'rutas de administración de usuarios');
+    loadRoutes('./routes/auth', '/api/auth', 'rutas de autenticación');
+    loadRoutes('./routes/users', '/api/users', 'rutas de usuarios');
+    loadRoutes('./routes/businesses', '/api/businesses', 'rutas de negocios');
+    loadRoutes('./routes/admin/users', '/api/admin/users', 'rutas de administración de usuarios');
     
     // ===============================================
     // ARCHIVOS ESTÁTICOS Y SPA FALLBACK
@@ -160,30 +159,38 @@ loadRoutes('./routes/admin/users', '/api/admin/users', 'rutas de administración
     if (isProduction) {
       console.log('📁 Configurando archivos estáticos...');
       
-      // La ruta correcta basada en tu estructura
-      const staticPath = path.join(__dirname, '../../frontend/dist');
+      // Rutas posibles para el frontend
+      const possiblePaths = [
+        path.join(__dirname, '../../frontend/dist'),
+        path.join(__dirname, '../frontend/dist'),
+        path.join(__dirname, './dist'),
+        path.join(process.cwd(), 'dist'),
+        path.join(process.cwd(), 'frontend/dist')
+      ];
+      
       const fs = require('fs');
+      let staticPath = null;
       
-      console.log(`🔍 Buscando frontend en: ${staticPath}`);
+      // Buscar el directorio correcto
+      for (const testPath of possiblePaths) {
+        console.log(`🔍 Verificando: ${testPath}`);
+        if (fs.existsSync(testPath)) {
+          const indexPath = path.join(testPath, 'index.html');
+          if (fs.existsSync(indexPath)) {
+            staticPath = testPath;
+            console.log(`✅ Frontend encontrado en: ${staticPath}`);
+            break;
+          }
+        }
+      }
       
-      if (fs.existsSync(staticPath)) {
-        console.log('✅ Frontend encontrado');
-        
+      if (staticPath) {
         // Servir archivos estáticos
         app.use(express.static(staticPath));
         console.log('✅ Archivos estáticos configurados');
         
-        // Verificar que index.html existe
-        const indexPath = path.join(staticPath, 'index.html');
-        if (fs.existsSync(indexPath)) {
-          console.log('✅ index.html encontrado');
-        } else {
-          console.warn('⚠️ index.html NO encontrado');
-        }
-        
-        // SPA fallback - DEBE IR DESPUÉS DE LAS RUTAS DE API
+        // SPA fallback
         app.get('*', (req, res) => {
-          // Si es una ruta de API que no existe, devolver 404 JSON
           if (req.path.startsWith('/api/')) {
             return res.status(404).json({
               success: false,
@@ -193,66 +200,29 @@ loadRoutes('./routes/admin/users', '/api/admin/users', 'rutas de administración
             });
           }
           
-          // Para cualquier otra ruta, servir index.html (SPA)
           const indexPath = path.join(staticPath, 'index.html');
-          if (fs.existsSync(indexPath)) {
-            console.log(`📄 Sirviendo SPA para: ${req.path}`);
-            res.sendFile(indexPath);
-          } else {
-            res.status(404).send('Frontend no disponible - index.html no encontrado');
-          }
+          res.sendFile(indexPath);
         });
       } else {
-        console.warn(`⚠️ Directorio de archivos estáticos no encontrado: ${staticPath}`);
+        console.warn('⚠️ Frontend no encontrado en ninguna ubicación');
         
-        // Intentar rutas alternativas
-        const alternativePaths = [
-          path.join(__dirname, '../frontend/dist'),
-          path.join(__dirname, './dist'),
-          path.join(__dirname, '../dist')
-        ];
-        
-        let foundPath = null;
-        for (const altPath of alternativePaths) {
-          console.log(`🔍 Intentando: ${altPath}`);
-          if (fs.existsSync(altPath)) {
-            foundPath = altPath;
-            console.log(`✅ Frontend encontrado en: ${altPath}`);
-            break;
-          }
-        }
-        
-        if (foundPath) {
-          app.use(express.static(foundPath));
-          app.get('*', (req, res) => {
-            if (req.path.startsWith('/api/')) {
-              return res.status(404).json({
-                success: false,
-                message: 'Endpoint de API no encontrado',
-                error: 'NOT_FOUND'
-              });
-            }
-            res.sendFile(path.join(foundPath, 'index.html'));
-          });
-        } else {
-          // Fallback si no hay archivos estáticos
-          app.get('*', (req, res) => {
-            if (req.path.startsWith('/api/')) {
-              return res.status(404).json({
-                success: false,
-                message: 'Endpoint de API no encontrado',
-                error: 'NOT_FOUND'
-              });
-            }
-            
-            res.status(503).json({
+        // Fallback sin frontend
+        app.get('*', (req, res) => {
+          if (req.path.startsWith('/api/')) {
+            return res.status(404).json({
               success: false,
-              message: 'Frontend no disponible',
-              error: 'FRONTEND_NOT_DEPLOYED',
-              searchedPaths: [staticPath, ...alternativePaths]
+              message: 'Endpoint de API no encontrado',
+              error: 'NOT_FOUND'
             });
+          }
+          
+          res.status(503).json({
+            success: false,
+            message: 'Frontend no disponible',
+            error: 'FRONTEND_NOT_DEPLOYED',
+            searchedPaths: possiblePaths
           });
-        }
+        });
       }
     } else {
       // Página de desarrollo
@@ -285,7 +255,7 @@ loadRoutes('./routes/admin/users', '/api/admin/users', 'rutas de administración
     });
     
     // Iniciar servidor
-    const server = app.listen(PORT, () => {
+    const server = app.listen(PORT, '0.0.0.0', () => {
       console.log(`🌟 Servidor corriendo en puerto ${PORT}`);
       console.log('==========================================');
       console.log('✅ Business Map Server v2.1.0 LISTO');
