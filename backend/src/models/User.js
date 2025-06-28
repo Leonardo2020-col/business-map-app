@@ -103,6 +103,13 @@ const User = sequelize.define('User', {
       }
     }
   },
+  // ✅ CAMPO PERMISSIONS AÑADIDO
+  permissions: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    defaultValue: null,
+    comment: 'Array JSON de permisos del usuario'
+  },
   created_at: {
     type: DataTypes.DATE,
     allowNull: false,
@@ -266,7 +273,7 @@ User.findByEmail = async function(email) {
 User.listAll = async function() {
   try {
     const users = await this.findAll({
-      attributes: ['id', 'username', 'email', 'full_name', 'role', 'is_active', 'created_at'],
+      attributes: ['id', 'username', 'email', 'full_name', 'role', 'is_active', 'permissions', 'created_at'],
       order: [['created_at', 'DESC']]
     });
     
@@ -337,7 +344,7 @@ User.findWithFilters = async function(options = {}) {
   try {
     const { count, rows } = await this.findAndCountAll({
       where,
-      attributes: ['id', 'username', 'email', 'full_name', 'role', 'is_active', 'last_login', 'created_at', 'updated_at'],
+      attributes: ['id', 'username', 'email', 'full_name', 'role', 'is_active', 'permissions', 'last_login', 'created_at', 'updated_at'],
       order: [[sortBy, sortOrder]],
       limit: parseInt(limit),
       offset: (parseInt(page) - 1) * parseInt(limit)
