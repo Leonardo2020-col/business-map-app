@@ -12,29 +12,79 @@ const usePermissions = () => {
   const { user } = useAuth();
 
   const hasPermission = (permission) => {
-    if (!user) return false;
-    if (user.role === 'admin') return true;
-    return user.permissions?.includes(permission) || false;
+    if (!user) {
+      console.log('❌ hasPermission: No user for permission:', permission);
+      return false;
+    }
+    if (user.role === 'admin') {
+      console.log('✅ hasPermission: Admin has all permissions:', permission);
+      return true;
+    }
+    
+    const result = user.permissions?.includes(permission) || false;
+    console.log('🔍 hasPermission check:', {
+      permission,
+      userPermissions: user.permissions,
+      result
+    });
+    
+    return result;
   };
 
   const canEditBusiness = (business) => {
-    if (!user) return false;
-    if (user.role === 'admin') return true;
+    if (!user) {
+      console.log('❌ canEditBusiness: No user');
+      return false;
+    }
+    if (user.role === 'admin') {
+      console.log('✅ canEditBusiness: User is admin');
+      return true;
+    }
     
     // Necesita permiso de editar Y ser propietario
     const hasEditPermission = hasPermission('business:edit');
     const isOwner = business.created_by === user.id;
     
+    console.log('🔍 canEditBusiness debug:', {
+      business: business.name,
+      businessId: business.id,
+      businessCreatedBy: business.created_by,
+      userId: user.id,
+      userRole: user.role,
+      userPermissions: user.permissions,
+      hasEditPermission,
+      isOwner,
+      result: hasEditPermission && isOwner
+    });
+    
     return hasEditPermission && isOwner;
   };
 
   const canDeleteBusiness = (business) => {
-    if (!user) return false;
-    if (user.role === 'admin') return true;
+    if (!user) {
+      console.log('❌ canDeleteBusiness: No user');
+      return false;
+    }
+    if (user.role === 'admin') {
+      console.log('✅ canDeleteBusiness: User is admin');
+      return true;
+    }
     
     // Necesita permiso de eliminar Y ser propietario
     const hasDeletePermission = hasPermission('business:delete');
     const isOwner = business.created_by === user.id;
+    
+    console.log('🔍 canDeleteBusiness debug:', {
+      business: business.name,
+      businessId: business.id,
+      businessCreatedBy: business.created_by,
+      userId: user.id,
+      userRole: user.role,
+      userPermissions: user.permissions,
+      hasDeletePermission,
+      isOwner,
+      result: hasDeletePermission && isOwner
+    });
     
     return hasDeletePermission && isOwner;
   };
@@ -210,12 +260,17 @@ const BusinessCard = ({
     return "No puedes eliminar este negocio";
   };
 
-  console.log('🔍 BusinessCard permisos:', {
-    business: business.name,
+  console.log('🔍 BusinessCard permisos DETALLADO:', {
+    businessName: business.name,
+    businessId: business.id,
+    businessCreatedBy: business.created_by,
+    currentUser: permissions.user?.username,
+    currentUserId: permissions.user?.id,
+    currentUserRole: permissions.user?.role,
+    currentUserPermissions: permissions.user?.permissions,
     canEdit,
     canDelete,
-    userRole: permissions.user?.role,
-    userPermissions: permissions.user?.permissions,
+    canView,
     isOwner: business.created_by === permissions.user?.id
   });
 
