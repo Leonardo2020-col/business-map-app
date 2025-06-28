@@ -1,114 +1,83 @@
 const express = require('express');
-const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize');
 
 const router = express.Router();
 
-// ✅ IMPORTACIONES SEGURAS
-let User, auth, adminAuth;
-
+// Importación segura de modelos
+let Business, User, sequelize, auth, requirePermission;
 try {
-  User = require('../../models/User');
-  console.log('✅ Modelo User importado en admin/users routes');
+  sequelize = require('../config/database');
+  Business = require('../models/Business');
+  User = require('../models/User');
+  console.log('✅ Modelos importados en businesses routes');
 } catch (error) {
-  console.error('❌ Error importando User en admin/users routes:', error.message);
+  console.error('❌ Error importando modelos en businesses routes:', error.message);
+  Business = null;
   User = null;
+  sequelize = null;
 }
 
+// ✅ IMPORTAR MIDDLEWARE DE AUTENTICACIÓN REAL
 try {
-  const authMiddleware = require('../../middleware/auth');
+  const authMiddleware = require('../middleware/auth');
+  const permissionsMiddleware = require('../middleware/permissions');
   auth = authMiddleware.auth;
-  adminAuth = authMiddleware.adminAuth;
-  console.log('✅ Middleware auth importado en admin/users routes');
+  requirePermission = permissionsMiddleware.requirePermission;
+  console.log('✅ Middleware de autenticación importado correctamente');
 } catch (error) {
-  console.error('❌ Error importando middleware auth en admin/users routes:', error.message);
-  // Middleware de fallback para desarrollo
+  console.error('❌ Error importando middleware de autenticación:', error.message);
+  // Fallback para desarrollo
   auth = (req, res, next) => {
-    req.user = { id: 1, role: 'admin', username: 'admin' };
+    req.user = { id: 1, role: 'admin', username: 'fallback' };
     next();
   };
-  adminAuth = (req, res, next) => next();
+  requirePermission = (perm) => (req, res, next) => next();
 }
 
-// ✅ MIDDLEWARE DE VERIFICACIÓN DE MODELOS
+// Middleware para verificar que los modelos estén disponibles
 const checkModels = (req, res, next) => {
-  if (!User) {
+  if (!Business || !User) {
     return res.status(503).json({
       success: false,
-      message: 'Servicio de usuarios no disponible',
-      error: 'USER_MODEL_NOT_AVAILABLE'
+      message: 'Servicio de negocios no disponible',
+      error: 'MODELS_NOT_AVAILABLE'
     });
   }
   next();
 };
 
-// ✅ ORDEN CORRECTO DE MIDDLEWARES
-router.use(auth);        // Primero verificar autenticación
-router.use(adminAuth);   // Luego verificar que sea admin
-router.use(checkModels); // Finalmente verificar modelos
+// ============================================================================
+// RUTAS ESPECÍFICAS PRIMERO
+// ============================================================================
 
-// ✅ RUTA DE PRUEBA
-router.get('/test', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Rutas de administración de usuarios funcionando correctamente',
-    user: req.user ? {
-      id: req.user.id,
-      username: req.user.username,
-      role: req.user.role
-    } : null,
-    timestamp: new Date().toISOString(),
-    modelAvailable: !!User
-  });
-});
-
-// ===============================================
-// RUTAS ESPECÍFICAS PRIMERO (ANTES DE /:id)
-// ===============================================
-
-// GET /api/admin/users/stats/summary - Estadísticas de usuarios
-router.get('/stats/summary', async (req, res) => {
+// GET /api/businesses/types/list - Lista de tipos de negocio (SIN AUTENTICACIÓN)
+router.get('/types/list', checkModels, async (req, res) => {
   try {
-    console.log('📊 Obteniendo estadísticas de usuarios...');
-    
-    const totalUsers = await User.count();
-    const activeUsers = await User.count({ where: { is_active: true } });
-    const adminUsers = await User.count({ where: { role: 'admin' } });
-    const regularUsers = await User.count({ where: { role: 'user' } });
-
-    // Usuarios creados en los últimos 30 días
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const recentUsers = await User.count({
-      where: {
-        created_at: { [Op.gte]: thirtyDaysAgo }
-      }
-    });
-
-    // Usuarios que han iniciado sesión en los últimos 7 días
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const activeLastWeek = await User.count({
-      where: {
-        last_login: { [Op.gte]: sevenDaysAgo }
-      }
-    });
-
-    console.log(`✅ Estadísticas calculadas: ${totalUsers} usuarios totales`);
+    // Lista estática de tipos de negocio
+    const businessTypes = [
+      { value: 'restaurant', label: 'Restaurante', icon: '🍽️' },
+      { value: 'store', label: 'Tienda', icon: '🏪' },
+      { value: 'pharmacy', label: 'Farmacia', icon: '💊' },
+      { value: 'bakery', label: 'Panadería', icon: '🥖' },
+      { value: 'market', label: 'Mercado', icon: '🛒' },
+      { value: 'clinic', label: 'Clínica', icon: '🏥' },
+      { value: 'workshop', label: 'Taller', icon: '🔧' },
+      { value: 'office', label: 'Oficina', icon: '🏢' },
+      { value: 'salon', label: 'Salón de belleza', icon: '💇' },
+      { value: 'gym', label: 'Gimnasio', icon: '🏋️' },
+      { value: 'school', label: 'Colegio/Academia', icon: '🎓' },
+      { value: 'bank', label: 'Banco/Financiera', icon: '🏦' },
+      { value: 'hotel', label: 'Hotel/Hospedaje', icon: '🏨' },
+      { value: 'gas_station', label: 'Grifo', icon: '⛽' },
+      { value: 'other', label: 'Otro', icon: '📍' }
+    ];
 
     res.json({
       success: true,
-      data: {
-        total: totalUsers,
-        active: activeUsers,
-        inactive: totalUsers - activeUsers,
-        admins: adminUsers,
-        regular: regularUsers,
-        recentSignups: recentUsers,
-        activeLastWeek
-      }
+      data: businessTypes
     });
-
   } catch (error) {
-    console.error('❌ Error obteniendo estadísticas:', error);
+    console.error('Error al obtener tipos de negocio:', error);
     res.status(500).json({
       success: false,
       message: 'Error interno del servidor',
@@ -117,87 +86,324 @@ router.get('/stats/summary', async (req, res) => {
   }
 });
 
-// ===============================================
-// RUTAS CON PARÁMETROS DESPUÉS
-// ===============================================
-
-// GET /api/admin/users - Obtener todos los usuarios
-router.get('/', async (req, res) => {
+// GET /api/businesses/stats/summary - Estadísticas generales - ✅ CON PERMISOS
+router.get('/stats/summary', checkModels, auth, requirePermission('reports:view'), async (req, res) => {
   try {
-    console.log('👥 Obteniendo lista de usuarios...');
+    console.log('📊 Obteniendo estadísticas del dashboard...');
+    console.log('👤 Usuario solicitando stats:', req.user?.username, 'con permisos:', req.user?.permissions);
+
+    // Estadísticas básicas que siempre funcionan
+    const basicStats = {
+      total: 0,
+      active: 0,
+      inactive: 0,
+      recent: 0,
+      byType: [],
+      byDistrict: [],
+      servicesStatus: {
+        total: 0,
+        withIssues: 0,
+        ok: 0
+      }
+    };
+
+    try {
+      // Contar total de negocios
+      basicStats.total = await Business.count();
+      console.log(`✅ Total de negocios: ${basicStats.total}`);
+
+      // Intentar contar activos (si el campo existe)
+      try {
+        basicStats.active = await Business.count({ 
+          where: { is_active: true } 
+        });
+        basicStats.inactive = basicStats.total - basicStats.active;
+        console.log(`✅ Activos: ${basicStats.active}, Inactivos: ${basicStats.inactive}`);
+      } catch (activeError) {
+        console.warn('⚠️ Campo is_active no existe, usando todos como activos');
+        basicStats.active = basicStats.total;
+        basicStats.inactive = 0;
+      }
+
+      // Negocios recientes (últimos 30 días)
+      try {
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        basicStats.recent = await Business.count({
+          where: {
+            created_at: { [Op.gte]: thirtyDaysAgo }
+          }
+        });
+        console.log(`✅ Negocios recientes: ${basicStats.recent}`);
+      } catch (recentError) {
+        console.warn('⚠️ No se pudo calcular negocios recientes:', recentError.message);
+        basicStats.recent = 0;
+      }
+
+      // Estadísticas por tipo (si el campo existe)
+      try {
+        const businessesByType = await Business.findAll({
+          attributes: [
+            'business_type',
+            [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+          ],
+          group: ['business_type'],
+          raw: true
+        });
+        
+        basicStats.byType = businessesByType.map(item => ({
+          type: item.business_type || 'Sin tipo',
+          count: parseInt(item.count) || 0
+        }));
+        console.log(`✅ Tipos de negocio: ${basicStats.byType.length}`);
+      } catch (typeError) {
+        console.warn('⚠️ Campo business_type no existe o error:', typeError.message);
+        basicStats.byType = [{ type: 'Todos', count: basicStats.total }];
+      }
+
+      // Estadísticas por distrito
+      try {
+        const businessesByDistrict = await Business.findAll({
+          attributes: [
+            'distrito',
+            [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+          ],
+          group: ['distrito'],
+          raw: true,
+          limit: 10 // Solo top 10
+        });
+        
+        basicStats.byDistrict = businessesByDistrict.map(item => ({
+          district: item.distrito || 'Sin distrito',
+          count: parseInt(item.count) || 0
+        }));
+        console.log(`✅ Distritos: ${basicStats.byDistrict.length}`);
+      } catch (districtError) {
+        console.warn('⚠️ Campo distrito no existe o error:', districtError.message);
+        basicStats.byDistrict = [];
+      }
+
+      // Estadísticas de servicios (si los campos existen)
+      try {
+        const today = new Date();
+        const serviceFields = [
+          'defensa_civil_expiry', 
+          'extintores_expiry', 
+          'fumigacion_expiry', 
+          'pozo_tierra_expiry', 
+          'publicidad_expiry'
+        ];
+
+        let businessesWithIssues = 0;
+        for (const field of serviceFields) {
+          try {
+            const count = await Business.count({
+              where: { [field]: { [Op.lt]: today } }
+            });
+            businessesWithIssues += count;
+          } catch (fieldError) {
+            // Campo no existe, continuar
+          }
+        }
+
+        basicStats.servicesStatus = {
+          total: basicStats.total,
+          withIssues: businessesWithIssues,
+          ok: basicStats.total - businessesWithIssues
+        };
+        console.log(`✅ Servicios - Con problemas: ${businessesWithIssues}`);
+      } catch (servicesError) {
+        console.warn('⚠️ No se pudieron calcular estadísticas de servicios:', servicesError.message);
+        basicStats.servicesStatus = {
+          total: basicStats.total,
+          withIssues: 0,
+          ok: basicStats.total
+        };
+      }
+
+    } catch (queryError) {
+      console.error('❌ Error en consultas de estadísticas:', queryError);
+    }
+
+    console.log('📊 Estadísticas calculadas exitosamente');
+    
+    res.json({
+      success: true,
+      data: basicStats,
+      timestamp: new Date().toISOString(),
+      message: 'Estadísticas obtenidas correctamente'
+    });
+
+  } catch (error) {
+    console.error('❌ Error fatal en stats/summary:', error);
+    
+    res.json({
+      success: true,
+      data: {
+        total: 0,
+        active: 0,
+        inactive: 0,
+        recent: 0,
+        byType: [],
+        byDistrict: [],
+        servicesStatus: {
+          total: 0,
+          withIssues: 0,
+          ok: 0
+        }
+      },
+      error: 'Estadísticas no disponibles temporalmente',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// GET /api/businesses/services/status - ✅ CON PERMISOS
+router.get('/services/status', checkModels, auth, requirePermission('reports:view'), async (req, res) => {
+  try {
+    console.log('📊 Usuario solicitando servicios:', req.user?.username);
+    
+    const today = new Date();
+    const thirtyDaysFromNow = new Date(today.getTime() + (30 * 24 * 60 * 60 * 1000));
+    
+    const services = [
+      { name: 'Defensa Civil', field: 'defensa_civil_expiry', icon: '🚨' },
+      { name: 'Extintores', field: 'extintores_expiry', icon: '🧯' },
+      { name: 'Fumigación', field: 'fumigacion_expiry', icon: '🦟' },
+      { name: 'Pozo a Tierra', field: 'pozo_tierra_expiry', icon: '⚡' },
+      { name: 'Publicidad', field: 'publicidad_expiry', icon: '📢' }
+    ];
+
+    const statistics = await Promise.all(
+      services.map(async (service) => {
+        try {
+          const [expired, expiringSoon, valid, withoutDate] = await Promise.all([
+            Business.count({
+              where: { [service.field]: { [Op.lt]: today } }
+            }),
+            Business.count({
+              where: { [service.field]: { [Op.between]: [today, thirtyDaysFromNow] } }
+            }),
+            Business.count({
+              where: { [service.field]: { [Op.gt]: thirtyDaysFromNow } }
+            }),
+            Business.count({
+              where: { [service.field]: null }
+            })
+          ]);
+
+          return {
+            service: service.name,
+            field: service.field,
+            icon: service.icon,
+            expired,
+            expiringSoon,
+            valid,
+            withoutDate,
+            total: expired + expiringSoon + valid + withoutDate
+          };
+        } catch (serviceError) {
+          console.warn(`Campo ${service.field} no existe en la BD`);
+          return {
+            service: service.name,
+            field: service.field,
+            icon: service.icon,
+            expired: 0,
+            expiringSoon: 0,
+            valid: 0,
+            withoutDate: 0,
+            total: 0
+          };
+        }
+      })
+    );
+
+    const totalBusinesses = await Business.count();
+
+    res.json({
+      success: true,
+      data: {
+        summary: {
+          totalBusinesses,
+          businessesWithIssues: 0,
+          businessesOk: totalBusinesses
+        },
+        services: statistics
+      }
+    });
+  } catch (error) {
+    console.error('Error al obtener estadísticas de servicios:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor',
+      error: 'INTERNAL_ERROR'
+    });
+  }
+});
+
+// ============================================================================
+// RUTAS PRINCIPALES
+// ============================================================================
+
+// GET /api/businesses - ✅ CON PERMISOS DE LECTURA
+router.get('/', checkModels, auth, requirePermission('business:read'), async (req, res) => {
+  try {
+    console.log('📋 Usuario solicitando negocios:', req.user?.username, 'con permisos:', req.user?.permissions);
     
     const { 
       page = 1, 
       limit = 50, 
       search, 
-      role, 
-      status,
+      type,
+      district,
+      sector,
       sortBy = 'created_at', 
       sortOrder = 'DESC' 
     } = req.query;
 
-    // Construir condiciones de búsqueda
     const where = {};
 
     if (search) {
       where[Op.or] = [
-        { username: { [Op.iLike]: `%${search}%` } },
-        { email: { [Op.iLike]: `%${search}%` } },
-        { full_name: { [Op.iLike]: `%${search}%` } }
+        { name: { [Op.iLike]: `%${search}%` } },
+        { description: { [Op.iLike]: `%${search}%` } },
+        { address: { [Op.iLike]: `%${search}%` } }
       ];
     }
 
-    if (role && role !== 'all') {
-      where.role = role;
+    if (type && type !== 'all') {
+      where.business_type = type;
     }
 
-    if (status && status !== 'all') {
-      where.is_active = status === 'active';
+    if (district && district !== 'all') {
+      where.distrito = district;
     }
 
-    // Validar campos de ordenamiento
-    const allowedSortFields = ['username', 'email', 'full_name', 'role', 'is_active', 'created_at', 'last_login'];
-    const sortField = allowedSortFields.includes(sortBy) ? sortBy : 'created_at';
-    const sortDirection = ['ASC', 'DESC'].includes(sortOrder.toUpperCase()) ? sortOrder.toUpperCase() : 'DESC';
+    if (sector && sector !== 'all') {
+      where.sector = sector;
+    }
 
-    // Configurar paginación
     const pageNum = Math.max(1, parseInt(page));
     const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
     const offset = (pageNum - 1) * limitNum;
 
-    // Obtener usuarios - ✅ INCLUIR PERMISSIONS
-    const { count, rows: users } = await User.findAndCountAll({
+    const { count, rows: businesses } = await Business.findAndCountAll({
       where,
-      attributes: [
-        'id', 'username', 'email', 'full_name', 'role', 
-        'is_active', 'permissions', 'last_login', 'created_at', 'updated_at'
-      ],
-      order: [[sortField, sortDirection]],
+      include: [{
+        model: User,
+        as: 'creator',
+        attributes: ['id', 'username', 'role'],
+        required: false
+      }],
+      order: [[sortBy, sortOrder]],
       limit: limitNum,
       offset: offset
     });
 
-    // Para cada usuario, agregar información de permisos - ✅ USAR PERMISOS REALES
-    const usersWithPermissions = users.map(user => {
-      const userObj = user.toJSON();
-      
-      if (user.role === 'admin') {
-        userObj.permissions = ['ALL'];
-        userObj.permissions_count = 'ALL';
-      } else {
-        // ✅ LEER PERMISOS REALES DE LA BD
-        userObj.permissions = user.permissions || [];
-        userObj.permissions_count = (user.permissions || []).length;
-      }
-      
-      return userObj;
-    });
-
-    console.log(`✅ ${users.length} usuarios obtenidos de ${count} totales`);
+    console.log(`✅ ${businesses.length} negocios devueltos a ${req.user.username}`);
 
     res.json({
       success: true,
-      data: usersWithPermissions,
+      data: businesses,
       pagination: {
         page: pageNum,
         limit: limitNum,
@@ -205,78 +411,11 @@ router.get('/', async (req, res) => {
         pages: Math.ceil(count / limitNum),
         hasNext: pageNum < Math.ceil(count / limitNum),
         hasPrev: pageNum > 1
-      },
-      filters: {
-        search: search || null,
-        role: role || null,
-        status: status || null,
-        sortBy: sortField,
-        sortOrder: sortDirection
       }
     });
 
   } catch (error) {
-    console.error('❌ Error obteniendo usuarios:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error interno del servidor',
-      error: 'INTERNAL_ERROR',
-      details: error.message
-    });
-  }
-});
-
-// GET /api/admin/users/:id - Obtener usuario específico
-router.get('/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    if (!/^\d+$/.test(id)) {
-      return res.status(400).json({
-        success: false,
-        message: 'ID de usuario inválido',
-        error: 'INVALID_USER_ID'
-      });
-    }
-
-    // ✅ INCLUIR PERMISSIONS EN LA CONSULTA
-    const user = await User.findByPk(id, {
-      attributes: [
-        'id', 'username', 'email', 'full_name', 'role', 
-        'is_active', 'permissions', 'last_login', 'created_at', 'updated_at'
-      ]
-    });
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'Usuario no encontrado',
-        error: 'USER_NOT_FOUND'
-      });
-    }
-
-    const userObj = user.toJSON();
-
-    // ✅ USAR PERMISOS REALES DE LA BD
-    if (user.role === 'admin') {
-      userObj.permissions = ['ALL'];
-    } else {
-      userObj.permissions = user.permissions || [];
-      userObj.detailed_permissions = (user.permissions || []).map(perm => ({
-        permission: perm,
-        granted_at: user.created_at
-      }));
-    }
-
-    console.log(`📋 Usuario ${user.username} cargado con permisos:`, userObj.permissions);
-
-    res.json({
-      success: true,
-      data: userObj
-    });
-
-  } catch (error) {
-    console.error('❌ Error obteniendo usuario:', error);
+    console.error('Error obteniendo negocios:', error);
     res.status(500).json({
       success: false,
       message: 'Error interno del servidor',
@@ -285,107 +424,24 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// POST /api/admin/users - Crear nuevo usuario
-router.post('/', async (req, res) => {
+// POST /api/businesses - ✅ CON PERMISOS DE CREACIÓN
+router.post('/', checkModels, auth, requirePermission('business:create'), async (req, res) => {
   try {
-    console.log('➕ Creando nuevo usuario...');
+    console.log('➕ Usuario creando negocio:', req.user?.username);
     
-    const { 
-      username, 
-      email, 
-      full_name, 
-      password, 
-      role = 'user', 
-      is_active = true,
-      permissions = []
-    } = req.body;
+    const businessData = { ...req.body };
+    businessData.created_by = req.user.id;
 
-    console.log('📝 Datos de creación:', { username, email, full_name, role, is_active, permissions });
-
-    // Validaciones básicas
-    if (!username || !password) {
-      return res.status(400).json({
-        success: false,
-        message: 'Nombre de usuario y contraseña son requeridos',
-        error: 'MISSING_REQUIRED_FIELDS'
-      });
-    }
-
-    if (username.length < 3) {
-      return res.status(400).json({
-        success: false,
-        message: 'El nombre de usuario debe tener al menos 3 caracteres',
-        error: 'INVALID_USERNAME'
-      });
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: 'La contraseña debe tener al menos 6 caracteres',
-        error: 'INVALID_PASSWORD'
-      });
-    }
-
-    if (!['admin', 'user'].includes(role)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Rol inválido',
-        error: 'INVALID_ROLE'
-      });
-    }
-
-    // Verificar que el usuario no exista
-    const existingUser = await User.findOne({
-      where: {
-        [Op.or]: [
-          { username },
-          ...(email ? [{ email }] : [])
-        ]
-      }
-    });
-
-    if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: 'El nombre de usuario o email ya existe',
-        error: 'USER_ALREADY_EXISTS'
-      });
-    }
-
-    // Hashear contraseña
-    const saltRounds = 12;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
-
-    // ✅ CREAR USUARIO CON PERMISOS
-    const newUser = await User.create({
-      username,
-      email: email || null,
-      full_name: full_name || null,
-      password: hashedPassword,
-      role,
-      is_active,
-      permissions: permissions // ✅ INCLUIR PERMISOS AL CREAR
-    });
-
-    // Obtener el usuario creado (sin password) - ✅ INCLUIR PERMISSIONS
-    const createdUser = await User.findByPk(newUser.id, {
-      attributes: [
-        'id', 'username', 'email', 'full_name', 'role', 
-        'is_active', 'permissions', 'created_at'
-      ]
-    });
-
-    console.log(`✅ Usuario creado: ${username} (ID: ${newUser.id}) con permisos:`, permissions);
+    const newBusiness = await Business.create(businessData);
 
     res.status(201).json({
       success: true,
-      message: 'Usuario creado exitosamente',
-      data: createdUser
+      message: 'Negocio creado exitosamente',
+      data: newBusiness
     });
 
   } catch (error) {
-    console.error('❌ Error creando usuario:', error);
+    console.error('Error creando negocio:', error);
     
     if (error.name === 'SequelizeValidationError') {
       return res.status(400).json({
@@ -399,14 +455,6 @@ router.post('/', async (req, res) => {
       });
     }
 
-    if (error.name === 'SequelizeUniqueConstraintError') {
-      return res.status(400).json({
-        success: false,
-        message: 'El nombre de usuario o email ya existe',
-        error: 'DUPLICATE_USER'
-      });
-    }
-
     res.status(500).json({
       success: false,
       message: 'Error interno del servidor',
@@ -415,145 +463,43 @@ router.post('/', async (req, res) => {
   }
 });
 
-// PUT /api/admin/users/:id - Actualizar usuario - ✅ CORREGIDO COMPLETAMENTE
-router.put('/:id', async (req, res) => {
+// GET /api/businesses/:id - ✅ CON PERMISOS DE LECTURA
+router.get('/:id', checkModels, auth, requirePermission('business:read'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { 
-      username, 
-      email, 
-      full_name, 
-      password, 
-      role, 
-      is_active,
-      permissions = []
-    } = req.body;
-
-    // ✅ LOG PARA DEBUG
-    console.log('=== DEBUG BACKEND ===');
-    console.log('ID usuario:', id);
-    console.log('Body completo:', req.body);
-    console.log('Permisos recibidos:', permissions);
-    console.log('Tipo de permisos:', typeof permissions);
 
     if (!/^\d+$/.test(id)) {
       return res.status(400).json({
         success: false,
-        message: 'ID de usuario inválido',
-        error: 'INVALID_USER_ID'
+        message: 'ID de negocio inválido',
+        error: 'INVALID_BUSINESS_ID'
       });
     }
 
-    const user = await User.findByPk(id);
+    const business = await Business.findByPk(id, {
+      include: [{
+        model: User,
+        as: 'creator',
+        attributes: ['id', 'username', 'role'],
+        required: false
+      }]
+    });
 
-    if (!user) {
+    if (!business) {
       return res.status(404).json({
         success: false,
-        message: 'Usuario no encontrado',
-        error: 'USER_NOT_FOUND'
+        message: 'Negocio no encontrado',
+        error: 'BUSINESS_NOT_FOUND'
       });
     }
-
-    // Validaciones de seguridad
-    if (parseInt(id) === req.user.id) {
-      if (is_active === false) {
-        return res.status(400).json({
-          success: false,
-          message: 'No puedes desactivarte a ti mismo',
-          error: 'CANNOT_DEACTIVATE_SELF'
-        });
-      }
-      
-      if (role && role !== user.role) {
-        return res.status(400).json({
-          success: false,
-          message: 'No puedes cambiar tu propio rol',
-          error: 'CANNOT_CHANGE_OWN_ROLE'
-        });
-      }
-    }
-
-    // Preparar datos de actualización
-    const updateData = {};
-    
-    if (username !== undefined) updateData.username = username;
-    if (email !== undefined) updateData.email = email || null;
-    if (full_name !== undefined) updateData.full_name = full_name || null;
-    if (role !== undefined) updateData.role = role;
-    if (is_active !== undefined) updateData.is_active = is_active;
-
-    // ✅ AQUÍ ESTABA EL PROBLEMA - AÑADIR PERMISOS
-    if (permissions !== undefined) {
-      updateData.permissions = permissions;
-      console.log('✅ Permisos incluidos en updateData:', permissions);
-    }
-
-    // Actualizar contraseña si se proporciona
-    if (password && password.trim().length > 0) {
-      if (password.length < 6) {
-        return res.status(400).json({
-          success: false,
-          message: 'La contraseña debe tener al menos 6 caracteres',
-          error: 'INVALID_PASSWORD'
-        });
-      }
-      
-      const saltRounds = 12;
-      updateData.password = await bcrypt.hash(password, saltRounds);
-    }
-
-    console.log('📝 UpdateData completo:', updateData);
-
-    // ✅ ACTUALIZAR USUARIO
-    await user.update(updateData);
-
-    console.log('✅ Usuario actualizado en BD');
-
-    // Obtener usuario actualizado - ✅ INCLUIR PERMISSIONS
-    const updatedUser = await User.findByPk(id, {
-      attributes: [
-        'id', 'username', 'email', 'full_name', 'role', 
-        'is_active', 'permissions', 'last_login', 'updated_at'
-      ]
-    });
-
-    console.log('📋 Usuario después de actualizar:', {
-      id: updatedUser.id,
-      username: updatedUser.username,
-      permissions: updatedUser.permissions
-    });
-
-    console.log('=== FIN DEBUG ===');
 
     res.json({
       success: true,
-      message: 'Usuario actualizado exitosamente',
-      data: updatedUser
+      data: business
     });
 
   } catch (error) {
-    console.error('❌ Error actualizando usuario:', error);
-    
-    if (error.name === 'SequelizeValidationError') {
-      return res.status(400).json({
-        success: false,
-        message: 'Datos de entrada inválidos',
-        error: 'VALIDATION_ERROR',
-        details: error.errors.map(err => ({
-          field: err.path,
-          message: err.message
-        }))
-      });
-    }
-
-    if (error.name === 'SequelizeUniqueConstraintError') {
-      return res.status(400).json({
-        success: false,
-        message: 'El nombre de usuario o email ya existe',
-        error: 'DUPLICATE_USER'
-      });
-    }
-
+    console.error('Error obteniendo negocio:', error);
     res.status(500).json({
       success: false,
       message: 'Error interno del servidor',
@@ -562,71 +508,114 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// DELETE /api/admin/users/:id - Eliminar usuario
-router.delete('/:id', async (req, res) => {
+// PUT /api/businesses/:id - ✅ CON PERMISOS DE EDICIÓN
+router.put('/:id', checkModels, auth, requirePermission('business:edit'), async (req, res) => {
   try {
+    console.log('✏️ Usuario editando negocio:', req.user?.username);
+    
     const { id } = req.params;
 
     if (!/^\d+$/.test(id)) {
       return res.status(400).json({
         success: false,
-        message: 'ID de usuario inválido',
-        error: 'INVALID_USER_ID'
+        message: 'ID de negocio inválido',
+        error: 'INVALID_BUSINESS_ID'
       });
     }
 
-    const user = await User.findByPk(id);
+    const business = await Business.findByPk(id);
 
-    if (!user) {
+    if (!business) {
       return res.status(404).json({
         success: false,
-        message: 'Usuario no encontrado',
-        error: 'USER_NOT_FOUND'
+        message: 'Negocio no encontrado',
+        error: 'BUSINESS_NOT_FOUND'
       });
     }
 
-    // No permitir eliminar el usuario actual
-    if (parseInt(id) === req.user.id) {
-      return res.status(400).json({
+    // Verificar permisos adicionales
+    if (req.user.role !== 'admin' && business.created_by !== req.user.id) {
+      return res.status(403).json({
         success: false,
-        message: 'No puedes eliminarte a ti mismo',
-        error: 'CANNOT_DELETE_SELF'
+        message: 'No tienes permisos para editar este negocio',
+        error: 'INSUFFICIENT_PERMISSIONS'
       });
     }
 
-    // Verificar si es el último administrador
-    if (user.role === 'admin') {
-      const adminCount = await User.count({
-        where: { 
-          role: 'admin',
-          is_active: true,
-          id: { [Op.ne]: id }
-        }
-      });
+    const updateData = { ...req.body };
+    delete updateData.id;
+    delete updateData.created_by;
 
-      if (adminCount === 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'No puedes eliminar el último administrador del sistema',
-          error: 'CANNOT_DELETE_LAST_ADMIN'
-        });
-      }
-    }
+    await business.update(updateData);
 
-    const username = user.username;
-    
-    // Eliminar usuario
-    await user.destroy();
-
-    console.log(`✅ Usuario eliminado: ${username} (ID: ${id})`);
+    const updatedBusiness = await Business.findByPk(id, {
+      include: [{
+        model: User,
+        as: 'creator',
+        attributes: ['id', 'username', 'role'],
+        required: false
+      }]
+    });
 
     res.json({
       success: true,
-      message: 'Usuario eliminado exitosamente'
+      message: 'Negocio actualizado exitosamente',
+      data: updatedBusiness
     });
 
   } catch (error) {
-    console.error('❌ Error eliminando usuario:', error);
+    console.error('Error actualizando negocio:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor',
+      error: 'INTERNAL_ERROR'
+    });
+  }
+});
+
+// DELETE /api/businesses/:id - ✅ CON PERMISOS DE ELIMINACIÓN
+router.delete('/:id', checkModels, auth, requirePermission('business:delete'), async (req, res) => {
+  try {
+    console.log('🗑️ Usuario eliminando negocio:', req.user?.username);
+    
+    const { id } = req.params;
+
+    if (!/^\d+$/.test(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID de negocio inválido',
+        error: 'INVALID_BUSINESS_ID'
+      });
+    }
+
+    const business = await Business.findByPk(id);
+
+    if (!business) {
+      return res.status(404).json({
+        success: false,
+        message: 'Negocio no encontrado',
+        error: 'BUSINESS_NOT_FOUND'
+      });
+    }
+
+    // Verificar permisos adicionales
+    if (req.user.role !== 'admin' && business.created_by !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'No tienes permisos para eliminar este negocio',
+        error: 'INSUFFICIENT_PERMISSIONS'
+      });
+    }
+
+    await business.destroy();
+
+    res.json({
+      success: true,
+      message: 'Negocio eliminado exitosamente'
+    });
+
+  } catch (error) {
+    console.error('Error eliminando negocio:', error);
     res.status(500).json({
       success: false,
       message: 'Error interno del servidor',
