@@ -17,7 +17,7 @@ const auth = async (req, res, next) => {
     // Verificar el token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // ✅ BUSCAR USUARIO CON PERMISOS
+    // ✅ BUSCAR USUARIO CON PERMISOS - INCLUIR permissions
     const user = await User.findByPk(decoded.id, {
       attributes: ['id', 'username', 'email', 'full_name', 'role', 'is_active', 'permissions', 'last_login']
     });
@@ -38,12 +38,20 @@ const auth = async (req, res, next) => {
       });
     }
 
-    // ✅ AGREGAR PERMISOS AL OBJETO USER
+    // ✅ PROCESAR PERMISOS CORRECTAMENTE
     const userObj = user.toJSON();
+    
+    console.log('🔍 Debug Auth - Usuario encontrado:', user.username);
+    console.log('🔍 Debug Auth - Rol:', user.role);
+    console.log('🔍 Debug Auth - Permisos en BD:', user.permissions);
+    
     if (user.role === 'admin') {
       userObj.permissions = ['ALL'];
+      console.log('🔐 Admin con todos los permisos');
     } else {
+      // ✅ USAR PERMISOS REALES DE LA COLUMNA permissions
       userObj.permissions = user.permissions || [];
+      console.log('🔐 Permisos de usuario:', userObj.permissions);
     }
 
     console.log(`🔐 Usuario autenticado: ${user.username} con permisos:`, userObj.permissions);
@@ -51,7 +59,10 @@ const auth = async (req, res, next) => {
     // Agregar usuario completo a la request
     req.user = userObj;
     next();
+    
   } catch (error) {
+    console.error('❌ Error en auth middleware:', error);
+    
     if (error.name === 'JsonWebTokenError') {
       return res.status(401).json({ 
         success: false,
@@ -68,7 +79,6 @@ const auth = async (req, res, next) => {
       });
     }
 
-    console.error('Error en middleware de autenticación:', error);
     res.status(500).json({ 
       success: false,
       message: 'Error interno del servidor',
@@ -116,6 +126,7 @@ const optionalAuth = async (req, res, next) => {
     next();
   } catch (error) {
     // Continuar sin autenticación en caso de error
+    console.log('⚠️ Error en optionalAuth:', error.message);
     next();
   }
 };
