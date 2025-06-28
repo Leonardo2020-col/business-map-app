@@ -115,6 +115,8 @@ const UserManagement = () => {
       setLoading(true);
       setError('');
       
+      console.log('🔍 Debug - Cargando usuarios desde /api/admin/users');
+      
       const response = await fetch('/api/admin/users', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -127,11 +129,24 @@ const UserManagement = () => {
       }
       
       const data = await response.json();
+      console.log('🔍 Debug - Respuesta completa del servidor al cargar usuarios:', data);
+      console.log('🔍 Debug - Usuarios recibidos:', data.data || []);
+      
+      // Log específico de permisos para cada usuario
+      if (data.data && Array.isArray(data.data)) {
+        data.data.forEach(user => {
+          console.log(`🔍 Debug - Usuario ${user.username} (ID: ${user.id}):`, {
+            permissions: user.permissions,
+            permissions_count: user.permissions_count
+          });
+        });
+      }
+      
       setUsers(data.data || []);
       
     } catch (err) {
       setError('Error al cargar la lista de usuarios');
-      console.error('Error:', err);
+      console.error('❌ Debug - Error cargando usuarios:', err);
     } finally {
       setLoading(false);
     }
@@ -225,9 +240,17 @@ const UserManagement = () => {
         return dbPerm || frontendPerm; // Fallback al nombre original si no se encuentra
       });
       
+      // Preparar el payload completo
+      const payload = {
+        ...updateData,
+        permissions: dbPermissions
+      };
+      
       console.log('🔍 Debug - Estado completo userPermissions:', userPermissions);
       console.log('🔍 Debug - Permisos frontend seleccionados:', selectedFrontendPermissions);
       console.log('🔍 Debug - Permisos para BD (editar):', dbPermissions);
+      console.log('🔍 Debug - Payload completo enviado al backend:', JSON.stringify(payload, null, 2));
+      console.log('🔍 Debug - URL del endpoint:', `/api/admin/users/${selectedUser.id}`);
       
       const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
         method: 'PUT',
@@ -235,26 +258,35 @@ const UserManagement = () => {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          ...updateData,
-          permissions: dbPermissions
-        })
+        body: JSON.stringify(payload)
       });
+      
+      console.log('🔍 Debug - Respuesta del servidor:', response.status, response.statusText);
       
       if (!response.ok) {
         const errorData = await response.json();
+        console.log('❌ Debug - Error del servidor:', errorData);
         throw new Error(errorData.message || 'Error al actualizar usuario');
       }
+      
+      // Leer la respuesta exitosa del servidor
+      const responseData = await response.json();
+      console.log('✅ Debug - Respuesta exitosa del servidor:', responseData);
       
       setSuccess('✅ Usuario actualizado exitosamente');
       setShowEditModal(false);
       resetForm();
       setSelectedUser(null);
-      loadUsers();
+      
+      // Recargar usuarios después de un pequeño delay para asegurar que la BD se actualice
+      setTimeout(() => {
+        loadUsers();
+      }, 500);
       
       setTimeout(() => setSuccess(''), 3000);
       
     } catch (err) {
+      console.error('❌ Debug - Error completo:', err);
       setError(`❌ ${err.message}`);
     }
   }, [formData, userPermissions, selectedUser, resetForm, loadUsers]);
